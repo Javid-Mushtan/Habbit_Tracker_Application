@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Chart background -->
+    <path
+        android:fillColor="#E3F2FD"
+        android:pathData="M30,150 L30,50 L170,50 L170,150 Z" />
+
+    <!-- Chart bars in blue -->
+    <path
+        android:fillColor="@color/primary_blue"
+        android:pathData="M50,150 L50,80 L70,80 L70,150 Z" />
+    <path
+        android:fillColor="@color/primary_blue"
+        android:pathData="M80,150 L80,60 L100,60 L100,150 Z" />
+    <path
+        android:fillColor="@color/primary_blue"
+        android:pathData="M110,150 L110,40 L130,40 L130,150 Z" />
+    <path
+        android:fillColor="@color/primary_blue"
+        android:pathData="M140,150 L140,70 L160,70 L160,150 Z" />
+
+    <!-- Trend line in darker blue -->
+    <path
+        android:strokeColor="#1976D2"
+        android:strokeWidth="3"
+        android:pathData="M50,80 L90,60 L130,40 L160,70" />
+
+</vector>

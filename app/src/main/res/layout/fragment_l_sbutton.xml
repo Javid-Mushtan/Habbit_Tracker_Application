@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white"
+    android:padding="24dp"
+    android:fitsSystemWindows="true"
+    tools:context=".fragments.LSbutton">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center">
+
+        <ImageView
+            android:layout_width="200dp"
+            android:layout_height="80dp"
+            android:src="@drawable/logo"
+            android:scaleType="centerInside"
+            android:layout_marginTop="40dp"
+            android:layout_marginBottom="20dp"
+            android:contentDescription="Habitify Logo" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Habitify"
+            android:textColor="@color/primary_blue"
+            android:textSize="32sp"
+            android:textStyle="bold"
+            android:layout_marginTop="40dp"
+            android:layout_marginBottom="20dp" />
+
+        <!-- Subtitle -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Viewell"
+            android:textColor="@color/secondary_text"
+            android:textSize="16sp"
+            android:layout_marginBottom="40dp" />
+
+        <!-- Header Text -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Let's Get You Started With Habitify!"
+            android:textColor="@color/black"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:layout_marginBottom="60dp" />
+
+        <!-- Google Sign In Button -->
+        <Button
+            android:id="@+id/btnGoogle"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="Sign In Using Google Account"
+            android:textColor="@color/black"
+            android:background="@drawable/button_border"
+            android:textSize="16sp"
+            android:layout_marginTop="16dp" />
+
+        <!-- Facebook Sign In Button -->
+        <Button
+            android:id="@+id/btnFacebook"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="Sign In Using Facebook Account"
+            android:textColor="@color/black"
+            android:background="@drawable/button_border"
+            android:textSize="16sp"
+            android:layout_marginTop="16dp" />
+
+        <!-- Apple Sign In Button -->
+        <Button
+            android:id="@+id/btnApple"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="Sign In Using Apple Account"
+            android:textColor="@color/black"
+            android:background="@drawable/button_border"
+            android:textSize="16sp"
+            android:layout_marginTop="16dp" />
+
+        <!-- Password Sign In Button -->
+        <Button
+            android:id="@+id/btnPassword"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="Sign In Using Password"
+            android:textColor="@color/black"
+            android:background="@drawable/button_border"
+            android:textSize="16sp"
+            android:layout_marginTop="16dp" />
+
+        <!-- Registration Text -->
+        <TextView
+            android:id="@+id/txtRegister"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="New To Habitify? Register Now"
+            android:textColor="@color/primary_blue"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginTop="40dp"
+            android:padding="12dp"
+            android:clickable="true"
+            android:focusable="true" />
+
+    </LinearLayout>
+
+</ScrollView>
