@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
@@ -39,6 +40,16 @@
             android:layout_marginTop="2dp" />
 
     </LinearLayout>
+
+    <ImageView
+        android:id="@+id/reminderIcon"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_marginEnd="8dp"
+        android:src="@android:drawable/ic_lock_idle_alarm"
+        android:visibility="gone"
+        android:contentDescription="Reminder set"
+        app:tint="@color/primary_blue" />
 
     <ImageButton
         android:id="@+id/btnOptions"

@@ -5,72 +5,115 @@
     android:orientation="vertical"
     android:padding="16dp">
 
-    <!-- Habit Name Input -->
+    <!-- Habit Name -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Habit Name"
-        android:textColor="@color/black"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="8dp" />
+        android:textSize="14sp"
+        android:textColor="@color/secondary_text" />
 
     <EditText
         android:id="@+id/etHabitName"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
         android:hint="Enter habit name"
-        android:background="@drawable/edittext_background"
-        android:padding="16dp"
-        android:textSize="16sp"
-        android:layout_marginBottom="16dp" />
+        android:textSize="16sp" />
 
-    <!-- Schedule Selection -->
+    <!-- Schedule -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Schedule"
-        android:textColor="@color/black"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="8dp" />
+        android:textSize="14sp"
+        android:textColor="@color/secondary_text"
+        android:layout_marginTop="16dp" />
 
     <Spinner
         android:id="@+id/spSchedule"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@drawable/edittext_background"
-        android:padding="12dp"
-        android:layout_marginBottom="24dp" />
+        android:layout_marginTop="4dp" />
+
+    <!-- Reminder Section -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="24dp"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Set Reminder"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <Switch
+            android:id="@+id/switchReminder"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+    </LinearLayout>
+
+    <!-- Reminder Time (initially hidden) -->
+    <LinearLayout
+        android:id="@+id/reminderTimeLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginTop="12dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Reminder Time"
+            android:textSize="14sp"
+            android:textColor="@color/secondary_text" />
+
+        <EditText
+            android:id="@+id/etReminderTime"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:hint="Tap to set time"
+            android:textSize="16sp"
+            android:focusable="false"
+            android:clickable="true"
+            android:background="@drawable/edit_text_border" />
+    </LinearLayout>
 
     <!-- Buttons -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:layout_marginTop="32dp">
 
         <Button
             android:id="@+id/btnCancel"
             android:layout_width="0dp"
-            android:layout_height="48dp"
+            android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Cancel"
-            android:textColor="@color/black"
-            android:background="@drawable/button_social"
             android:layout_marginEnd="8dp"
+            android:background="@drawable/button_outline"
+            android:textColor="@color/primary_blue"
             android:textSize="16sp" />
 
         <Button
             android:id="@+id/btnAdd"
             android:layout_width="0dp"
-            android:layout_height="48dp"
+            android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Add Habit"
-            android:textColor="@color/white"
-            android:background="@drawable/button_primary"
             android:layout_marginStart="8dp"
+            android:background="@color/primary_blue"
+            android:textColor="@android:color/white"
             android:textSize="16sp" />
-
     </LinearLayout>
 
 </LinearLayout>
