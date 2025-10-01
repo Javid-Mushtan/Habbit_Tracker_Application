@@ -17,10 +17,14 @@ import android.widget.*
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import com.javid.habitify.CategoriesActivity
 import com.javid.habitify.R
 import com.javid.habitify.model.Habit
 import com.javid.habitify.receivers.HabitReminderReceiver
 import com.javid.habitify.services.HabitReminderService
+import com.javid.habitify.utils.PrefsManager
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -49,6 +53,13 @@ class HomeFragment : Fragment() {
 
     private val habitsList = mutableListOf<Habit>()
     private var currentDialog: AlertDialog? = null
+    private lateinit var prefsManager: PrefsManager
+    private val gson = Gson()
+
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+        prefsManager = PrefsManager(requireContext())
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -69,7 +80,6 @@ class HomeFragment : Fragment() {
         loadHabits()
         updateUI()
 
-        // Request notification permission first
         requestNotificationPermission()
     }
 
@@ -121,67 +131,114 @@ class HomeFragment : Fragment() {
         }
     }
 
-    private fun testNotification() {
-        if (!hasNotificationPermission()) {
-            showToast("Please grant notification permission first")
-            requestNotificationPermission()
-            return
+    // 🎯 DYNAMIC HABITS MANAGEMENT
+    private fun loadHabits() {
+        habitsList.clear()
+
+        val savedHabits = prefsManager.getUserPreference("user_habits", "")
+        if (savedHabits.isNotEmpty()) {
+            try {
+                val type = object : TypeToken<List<Habit>>() {}.type
+                val loadedHabits = gson.fromJson<List<Habit>>(savedHabits, type)
+                habitsList.addAll(loadedHabits ?: emptyList())
+                Log.d("HomeFragment", "Loaded ${habitsList.size} habits from storage")
+            } catch (e: Exception) {
+                Log.e("HomeFragment", "Error loading habits: ${e.message}")
+                habitsList.clear()
+            }
+        } else {
+            habitsList.clear()
+            Log.d("HomeFragment", "No saved habits found")
         }
 
-        // Start foreground service first
-        HabitReminderService.startService(requireContext())
+        updateUI()
+    }
 
-        // Test with immediate notification (30 seconds from now)
+    private fun saveHabits() {
         try {
-            val alarmManager = requireContext().getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            val intent = Intent(requireContext(), HabitReminderReceiver::class.java).apply {
-                putExtra("habit_name", "Test Habit - Drink Water")
-                putExtra("habit_id", 9999L)
-                putExtra("test_notification", true)
-            }
-
-            val pendingIntent = PendingIntent.getBroadcast(
-                requireContext(),
-                9999,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-
-            val testTime = Calendar.getInstance().apply {
-                add(Calendar.SECOND, 30) // Test in 30 seconds
-            }
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (alarmManager.canScheduleExactAlarms()) {
-                    alarmManager.setExactAndAllowWhileIdle(
-                        AlarmManager.RTC_WAKEUP,
-                        testTime.timeInMillis,
-                        pendingIntent
-                    )
-                }
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    testTime.timeInMillis,
-                    pendingIntent
-                )
-            } else {
-                alarmManager.setExact(
-                    AlarmManager.RTC_WAKEUP,
-                    testTime.timeInMillis,
-                    pendingIntent
-                )
-            }
-
-            Log.d("HabitReminder", "Test alarm scheduled for 30 seconds from now")
-            showToast("Test notification scheduled for 30 seconds from now")
-
-        } catch (e: SecurityException) {
-            Log.e("HabitReminder", "Security Exception: ${e.message}")
-            showToast("Cannot schedule exact alarms. Please check app permissions.")
+            val habitsJson = gson.toJson(habitsList)
+            prefsManager.setUserPreference("user_habits", habitsJson)
+            Log.d("HomeFragment", "Saved ${habitsList.size} habits to storage")
         } catch (e: Exception) {
-            Log.e("HabitReminder", "Failed to schedule test alarm: ${e.message}")
-            showToast("Failed to schedule test notification: ${e.message}")
+            Log.e("HomeFragment", "Error saving habits: ${e.message}")
+        }
+    }
+
+    private fun addHabit(habit: Habit) {
+        habitsList.add(habit)
+        saveHabits()
+        updateUI()
+
+        if (habit.isReminderEnabled) {
+            scheduleHabitReminder(habit)
+        }
+
+        showToast("Habit '${habit.name}' added!")
+    }
+
+    private fun deleteHabit(habit: Habit) {
+        if (habit.isReminderEnabled) {
+            cancelHabitReminder(habit.id)
+        }
+        habitsList.remove(habit)
+        saveHabits()
+        updateUI()
+        showToast("Habit '${habit.name}' deleted!")
+    }
+
+    private fun updateHabitCompletion(habit: Habit, isCompleted: Boolean) {
+        val index = habitsList.indexOfFirst { it.id == habit.id }
+        if (index != -1) {
+            habitsList[index] = habit.copy(completed = isCompleted)
+            saveHabits()
+        }
+    }
+
+    private fun updateUI() {
+        if (habitsList.isEmpty()) {
+            emptyState.visibility = View.VISIBLE
+            habitsContainer.visibility = View.GONE
+        } else {
+            emptyState.visibility = View.GONE
+            habitsContainer.visibility = View.VISIBLE
+            populateHabitsList()
+        }
+    }
+
+    private fun populateHabitsList() {
+        habitsContainer.removeAllViews()
+
+        habitsList.forEach { habit ->
+            val habitView = LayoutInflater.from(requireContext())
+                .inflate(R.layout.item_habit, habitsContainer, false)
+
+            val tvHabitName: TextView = habitView.findViewById(R.id.tvHabitName)
+            val tvHabitSchedule: TextView = habitView.findViewById(R.id.tvHabitSchedule)
+            val cbCompleted: CheckBox = habitView.findViewById(R.id.cbCompleted)
+            val btnOptions: ImageButton = habitView.findViewById(R.id.btnOptions)
+            val reminderIcon: ImageView = habitView.findViewById(R.id.reminderIcon)
+
+            tvHabitName.text = habit.name
+            tvHabitSchedule.text = habit.schedule
+            cbCompleted.isChecked = habit.completed
+
+            if (habit.isReminderEnabled && !habit.reminderTime.isNullOrEmpty()) {
+                reminderIcon.visibility = View.VISIBLE
+                reminderIcon.contentDescription = "Reminder set for ${habit.reminderTime}"
+            } else {
+                reminderIcon.visibility = View.GONE
+            }
+
+            cbCompleted.setOnCheckedChangeListener { _, isChecked ->
+                updateHabitCompletion(habit, isChecked)
+                showToast("${habit.name} ${if (isChecked) "completed" else "pending"}")
+            }
+
+            btnOptions.setOnClickListener {
+                showHabitOptions(habit)
+            }
+
+            habitsContainer.addView(habitView)
         }
     }
 
@@ -252,7 +309,6 @@ class HomeFragment : Fragment() {
             tvDate.text = dateFormat.format(date)
             tvDay.text = dayFormat.format(date)
 
-            // Highlight today
             val today = Calendar.getInstance()
             if (isSameDay(calendar, today)) {
                 dayView.setBackgroundResource(R.drawable.calendar_today_bg)
@@ -346,73 +402,13 @@ class HomeFragment : Fragment() {
     }
 
     private fun navigateToCategories() {
+        val intent = Intent(requireContext(), CategoriesActivity::class.java)
+        startActivity(intent)
         showToast("Navigating to Categories")
     }
 
     private fun navigateToTimer() {
         showToast("Navigating to Timer")
-    }
-
-    private fun loadHabits() {
-        habitsList.clear()
-
-        habitsList.addAll(listOf(
-            Habit("Morning Meditation", "Daily", completed = true, reminderTime = "07:00", isReminderEnabled = true),
-            Habit("Exercise", "Mon, Wed, Fri", completed = false, reminderTime = "18:00", isReminderEnabled = true),
-            Habit("Read Book", "Daily", completed = false),
-            Habit("Drink Water", "Every 2 hours", completed = true, reminderTime = "09:00", isReminderEnabled = true),
-            Habit("Learn Kotlin", "Daily", completed = true)
-        ))
-
-        updateUI()
-    }
-
-    private fun updateUI() {
-        if (habitsList.isEmpty()) {
-            emptyState.visibility = View.VISIBLE
-            habitsContainer.visibility = View.GONE
-        } else {
-            emptyState.visibility = View.GONE
-            habitsContainer.visibility = View.VISIBLE
-            populateHabitsList()
-        }
-    }
-
-    private fun populateHabitsList() {
-        habitsContainer.removeAllViews()
-
-        habitsList.forEach { habit ->
-            val habitView = LayoutInflater.from(requireContext())
-                .inflate(R.layout.item_habit, habitsContainer, false)
-
-            val tvHabitName: TextView = habitView.findViewById(R.id.tvHabitName)
-            val tvHabitSchedule: TextView = habitView.findViewById(R.id.tvHabitSchedule)
-            val cbCompleted: CheckBox = habitView.findViewById(R.id.cbCompleted)
-            val btnOptions: ImageButton = habitView.findViewById(R.id.btnOptions)
-            val reminderIcon: ImageView = habitView.findViewById(R.id.reminderIcon)
-
-            tvHabitName.text = habit.name
-            tvHabitSchedule.text = habit.schedule
-            cbCompleted.isChecked = habit.completed
-
-            if (habit.isReminderEnabled && !habit.reminderTime.isNullOrEmpty()) {
-                reminderIcon.visibility = View.VISIBLE
-                reminderIcon.contentDescription = "Reminder set for ${habit.reminderTime}"
-            } else {
-                reminderIcon.visibility = View.GONE
-            }
-
-            cbCompleted.setOnCheckedChangeListener { _, isChecked ->
-                habit.completed = isChecked
-                showToast("${habit.name} ${if (isChecked) "completed" else "pending"}")
-            }
-
-            btnOptions.setOnClickListener {
-                showHabitOptions(habit)
-            }
-
-            habitsContainer.addView(habitView)
-        }
     }
 
     private fun searchHabits(query: String) {
@@ -449,7 +445,6 @@ class HomeFragment : Fragment() {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spSchedule.adapter = adapter
 
-        // Initialize reminder time layout visibility
         reminderTimeLayout.visibility = if (switchReminder.isChecked) View.VISIBLE else View.GONE
 
         switchReminder.setOnCheckedChangeListener { _, isChecked ->
@@ -463,7 +458,7 @@ class HomeFragment : Fragment() {
         val dialog = AlertDialog.Builder(requireContext())
             .setView(dialogView)
             .setTitle("Add New Habit")
-            .setCancelable(false) // Prevent accidental dismissal
+            .setCancelable(false)
             .create()
 
         btnCancel.setOnClickListener {
@@ -493,24 +488,17 @@ class HomeFragment : Fragment() {
             }
 
             val newHabit = Habit(
+                id = System.currentTimeMillis(),
                 name = habitName,
                 schedule = schedule,
                 reminderTime = reminderTime,
-                isReminderEnabled = isReminderEnabled
+                isReminderEnabled = isReminderEnabled,
+                completed = false
             )
 
-            habitsList.add(newHabit)
-            updateUI()
-
-            if (isReminderEnabled) {
-                scheduleHabitReminder(newHabit)
-            }
-
+            addHabit(newHabit)
             dialog.dismiss()
             currentDialog = null
-            showToast("Habit '$habitName' added!")
-
-            // Test notification after adding habit
             testNotification()
         }
 
@@ -530,7 +518,7 @@ class HomeFragment : Fragment() {
             .setItems(options) { _, which ->
                 when (which) {
                     0 -> editHabit(habit)
-                    1 -> deleteHabit(habit)
+                    1 -> showDeleteConfirmation(habit)
                     2 -> showToast("Statistics for ${habit.name}")
                     3 -> toggleHabitReminder(habit)
                 }
@@ -538,24 +526,19 @@ class HomeFragment : Fragment() {
             .show()
     }
 
-    private fun editHabit(habit: Habit) {
-        showToast("Editing ${habit.name}")
-    }
-
-    private fun deleteHabit(habit: Habit) {
+    private fun showDeleteConfirmation(habit: Habit) {
         AlertDialog.Builder(requireContext())
             .setTitle("Delete Habit")
-            .setMessage("Delete '${habit.name}'?")
+            .setMessage("Are you sure you want to delete '${habit.name}'?")
             .setPositiveButton("Delete") { _, _ ->
-                if (habit.isReminderEnabled) {
-                    cancelHabitReminder(habit.id)
-                }
-                habitsList.remove(habit)
-                updateUI()
-                showToast("Habit deleted")
+                deleteHabit(habit)
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private fun editHabit(habit: Habit) {
+        showToast("Editing ${habit.name}")
     }
 
     private fun toggleHabitReminder(habit: Habit) {
@@ -564,6 +547,7 @@ class HomeFragment : Fragment() {
             val index = habitsList.indexOfFirst { it.id == habit.id }
             if (index != -1) {
                 habitsList[index] = habit.copy(isReminderEnabled = false, reminderTime = null)
+                saveHabits()
             }
             showToast("Reminder disabled for ${habit.name}")
         } else {
@@ -588,6 +572,7 @@ class HomeFragment : Fragment() {
                 if (index != -1) {
                     habitsList[index] = updatedHabit
                     scheduleHabitReminder(updatedHabit)
+                    saveHabits()
                     updateUI()
                     showToast("Reminder set for $timeString")
                 }
@@ -642,7 +627,6 @@ class HomeFragment : Fragment() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
-            // Use appropriate alarm method based on Android version
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 if (alarmManager.canScheduleExactAlarms()) {
                     alarmManager.setExactAndAllowWhileIdle(
@@ -651,7 +635,6 @@ class HomeFragment : Fragment() {
                         pendingIntent
                     )
                 } else {
-                    // Fallback to inexact alarm
                     alarmManager.set(AlarmManager.RTC_WAKEUP, scheduledTime.timeInMillis, pendingIntent)
                 }
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -668,7 +651,6 @@ class HomeFragment : Fragment() {
                 )
             }
 
-            // Set repeating alarm for daily reminders
             alarmManager.setRepeating(
                 AlarmManager.RTC_WAKEUP,
                 scheduledTime.timeInMillis,
@@ -778,13 +760,74 @@ class HomeFragment : Fragment() {
             1001 -> {
                 if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     showToast("Notification permission granted!")
-                    // Start service now that we have permission
                     HabitReminderService.startService(requireContext())
                     testNotification()
                 } else {
                     showToast("Notification permission denied. Reminders won't work.")
                 }
             }
+        }
+    }
+
+    private fun testNotification() {
+        if (!hasNotificationPermission()) {
+            showToast("Please grant notification permission first")
+            requestNotificationPermission()
+            return
+        }
+
+        HabitReminderService.startService(requireContext())
+
+        try {
+            val alarmManager = requireContext().getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            val intent = Intent(requireContext(), HabitReminderReceiver::class.java).apply {
+                putExtra("habit_name", "Test Habit - Drink Water")
+                putExtra("habit_id", 9999L)
+                putExtra("test_notification", true)
+            }
+
+            val pendingIntent = PendingIntent.getBroadcast(
+                requireContext(),
+                9999,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val testTime = Calendar.getInstance().apply {
+                add(Calendar.SECOND, 30)
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (alarmManager.canScheduleExactAlarms()) {
+                    alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        testTime.timeInMillis,
+                        pendingIntent
+                    )
+                }
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    testTime.timeInMillis,
+                    pendingIntent
+                )
+            } else {
+                alarmManager.setExact(
+                    AlarmManager.RTC_WAKEUP,
+                    testTime.timeInMillis,
+                    pendingIntent
+                )
+            }
+
+            Log.d("HabitReminder", "Test alarm scheduled for 30 seconds from now")
+            showToast("Test notification scheduled for 30 seconds from now")
+
+        } catch (e: SecurityException) {
+            Log.e("HabitReminder", "Security Exception: ${e.message}")
+            showToast("Cannot schedule exact alarms. Please check app permissions.")
+        } catch (e: Exception) {
+            Log.e("HabitReminder", "Failed to schedule test alarm: ${e.message}")
+            showToast("Failed to schedule test notification: ${e.message}")
         }
     }
 

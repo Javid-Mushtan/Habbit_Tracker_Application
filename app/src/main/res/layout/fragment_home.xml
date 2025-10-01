@@ -124,7 +124,6 @@
 
     </ScrollView>
 
-    <!-- Custom Bottom Navigation -->
     <LinearLayout
         android:id="@+id/bottomNavigationView"
         android:layout_width="match_parent"
@@ -213,7 +212,6 @@
 
     </LinearLayout>
 
-    <!-- Custom Floating Action Button -->
     <ImageButton
         android:id="@+id/fabAdd"
         android:layout_width="56dp"

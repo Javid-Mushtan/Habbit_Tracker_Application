@@ -1,5 +1,6 @@
 package com.javid.habitify.fragments
 
+import android.content.Context
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -15,6 +16,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import com.javid.habitify.R
+import com.javid.habitify.utils.PrefsManager
 
 class LoginFragment : Fragment() {
 
@@ -25,6 +27,12 @@ class LoginFragment : Fragment() {
     private lateinit var btnFacebook: Button
     private lateinit var tvForgotPassword: TextView
     private lateinit var tvRegister: TextView
+    private lateinit var prefsManager: PrefsManager
+
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+        prefsManager = PrefsManager(requireContext())
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -37,14 +45,26 @@ class LoginFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Initialize views
+        checkAutoLogin()
         initViews(view)
-
-        // Setup click listeners
         setupClickListeners()
-
-        // Setup text watchers
         setupTextWatchers()
+        loadRememberedEmail()
+    }
+
+    private fun checkAutoLogin() {
+        if (prefsManager.isLoggedIn()) {
+            navigateToHomeFragment()
+        }
+    }
+
+    private fun loadRememberedEmail() {
+        if (prefsManager.shouldRememberMe()) {
+            val lastEmail = prefsManager.getLastEmail()
+            if (lastEmail.isNotEmpty()) {
+                etEmail.setText(lastEmail)
+            }
+        }
     }
 
     private fun initViews(view: View) {
@@ -80,7 +100,6 @@ class LoginFragment : Fragment() {
     }
 
     private fun setupTextWatchers() {
-        // Clear errors when user starts typing
         etEmail.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
@@ -110,11 +129,9 @@ class LoginFragment : Fragment() {
     private fun validateInputs(email: String, password: String): Boolean {
         var isValid = true
 
-        // Clear previous errors
         clearEmailError()
         clearPasswordError()
 
-        // Validate email
         when {
             email.isEmpty() -> {
                 setEmailError("Email is required")
@@ -142,33 +159,53 @@ class LoginFragment : Fragment() {
     }
 
     private fun performLogin(email: String, password: String) {
-        // Show loading state
         setLoginButtonState(isLoading = true)
 
-        // Simulate API call delay
         Handler(Looper.getMainLooper()).postDelayed({
-            // This is where you'd make your actual API call
-            if (isValidCredentials(email, password)) {
-                onLoginSuccess()
+            val user = prefsManager.loginUser(email, password)
+
+            if (user != null) {
+                prefsManager.setRememberMe(true)
+                prefsManager.setLastEmail(email)
+                onLoginSuccess(user.username)
             } else {
                 onLoginFailure()
             }
             setLoginButtonState(isLoading = false)
-        }, 2000)
+        }, 1500)
     }
 
-    private fun isValidCredentials(email: String, password: String): Boolean {
-        // For demo purposes - replace with actual authentication logic
-        return email.isNotEmpty() && password.length >= 6
-    }
+    // ❌ REMOVE THIS OLD METHOD - We're using actual PrefsManager login now
+    // private fun isValidCredentials(email: String, password: String): Boolean {
+    //     // Simple demo validation - replace with your actual logic
+    //     return email.isNotEmpty() && password.length >= 6
+    // }
 
-    private fun onLoginSuccess() {
-        showToast("Login successful!")
-        navigateToMainScreen()
+    private fun onLoginSuccess(username: String) {
+        showToast("Welcome back, $username!")
+        navigateToHomeFragment()
     }
 
     private fun onLoginFailure() {
         showToast("Invalid email or password")
+
+        // Show specific error messages
+        val email = etEmail.text.toString().trim()
+        if (prefsManager.getUserByEmail(email) == null) {
+            // User doesn't exist
+            setEmailError("No account found with this email")
+        } else {
+            // User exists but wrong password
+            setPasswordError("Incorrect password")
+        }
+    }
+
+    // ✅ NAVIGATE TO HOME FRAGMENT
+    private fun navigateToHomeFragment() {
+        val homeFragment = HomeFragment.newInstance()
+        requireActivity().supportFragmentManager.beginTransaction()
+            .replace(R.id.fragment_container, homeFragment)
+            .commit()
     }
 
     private fun setLoginButtonState(isLoading: Boolean) {
@@ -177,41 +214,57 @@ class LoginFragment : Fragment() {
     }
 
     private fun signInWithGoogle() {
-        // Implement Google Sign-In logic here
         showToast("Google Sign-In clicked")
+        // Simulate login for demo
+        simulateSocialLogin()
     }
 
     private fun signInWithFacebook() {
-        // Implement Facebook Sign-In logic here
         showToast("Facebook Sign-In clicked")
+        // Simulate login for demo
+        simulateSocialLogin()
+    }
+
+    private fun simulateSocialLogin() {
+        setLoginButtonState(isLoading = true)
+        Handler(Looper.getMainLooper()).postDelayed({
+            // For social login, create a demo user or use existing
+            val demoUser = prefsManager.getCurrentUser()
+            if (demoUser == null) {
+                // If no user exists, show message
+                showToast("Please sign up first or use demo account")
+            } else {
+                showToast("Social login successful!")
+                navigateToHomeFragment()
+            }
+            setLoginButtonState(isLoading = false)
+        }, 1500)
     }
 
     private fun navigateToForgotPassword() {
         showToast("Navigate to Forgot Password")
-        // Using Navigation Component
-        // findNavController().navigate(R.id.action_loginFragment_to_forgotPasswordFragment)
+        // Implement ForgotPasswordFragment navigation if needed
     }
 
     private fun navigateToRegister() {
         showToast("Navigate to Register")
-        // Using Navigation Component
-        // findNavController().navigate(R.id.action_loginFragment_to_registerFragment)
-    }
-
-    private fun navigateToMainScreen() {
-        showToast("Navigating to main screen...")
-        // Navigate to your main activity or home fragment
-        // Example using Navigation Component:
-        // findNavController().navigate(R.id.action_loginFragment_to_homeFragment)
+        // Navigate to SignupFragment
+        val signupFragment = SignupFragment.newInstance()
+        requireActivity().supportFragmentManager.beginTransaction()
+            .replace(R.id.fragment_container, signupFragment)
+            .addToBackStack("register")
+            .commit()
     }
 
     // Helper methods for error handling
     private fun setEmailError(error: String) {
         etEmail.error = error
+        etEmail.requestFocus()
     }
 
     private fun setPasswordError(error: String) {
         etPassword.error = error
+        etPassword.requestFocus()
     }
 
     private fun clearEmailError() {

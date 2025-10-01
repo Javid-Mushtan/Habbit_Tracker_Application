@@ -1,5 +1,6 @@
 package com.javid.habitify.fragments
 
+import android.content.Context
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -12,10 +13,15 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentManager
 import com.javid.habitify.R
+import com.javid.habitify.model.User
+import com.javid.habitify.utils.PrefsManager
+import java.util.UUID
 
 class SignupFragment : Fragment() {
 
+    private lateinit var prefsManager: PrefsManager
     private lateinit var etFullName: EditText
     private lateinit var etEmail: EditText
     private lateinit var etPassword: EditText
@@ -28,9 +34,15 @@ class SignupFragment : Fragment() {
     private lateinit var btnFacebook: Button
     private lateinit var tvLogin: TextView
     private lateinit var progressBar: ProgressBar
+    private lateinit var already: TextView
 
     private var isPasswordVisible = false
     private var isConfirmPasswordVisible = false
+
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+        prefsManager = PrefsManager(requireContext())
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -42,14 +54,8 @@ class SignupFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
-        // Initialize views
         initViews(view)
-
-        // Setup click listeners
         setupClickListeners()
-
-        // Setup text watchers
         setupTextWatchers()
     }
 
@@ -66,9 +72,20 @@ class SignupFragment : Fragment() {
         btnFacebook = view.findViewById(R.id.btnFacebook)
         tvLogin = view.findViewById(R.id.tvLogin)
         progressBar = view.findViewById(R.id.progressBar)
+        already = view.findViewById(R.id.already)
     }
 
     private fun setupClickListeners() {
+        already.setOnClickListener {
+            PrefsManager(requireContext()).logout()
+
+            val loginfragment = LoginFragment.newInstance()
+            requireActivity().supportFragmentManager.beginTransaction()
+                .replace(R.id.fragment_container, loginfragment)
+                .addToBackStack("login")
+                .commit()
+        }
+
         btnSignUp.setOnClickListener {
             attemptSignUp()
         }
@@ -177,7 +194,6 @@ class SignupFragment : Fragment() {
             }
         }
 
-        // Validate confirm password
         when {
             confirmPassword.isEmpty() -> {
                 setConfirmPasswordError("Please confirm your password")
@@ -189,7 +205,6 @@ class SignupFragment : Fragment() {
             }
         }
 
-        // Validate terms and conditions
         if (!cbTerms.isChecked) {
             showToast("Please accept the Terms of Service and Privacy Policy")
             isValid = false
@@ -199,13 +214,20 @@ class SignupFragment : Fragment() {
     }
 
     private fun performSignUp(fullName: String, email: String, password: String) {
-        // Show loading state
         setSignUpButtonState(isLoading = true)
 
-        // Simulate API call delay
         Handler(Looper.getMainLooper()).postDelayed({
-            // This is where you'd make your actual API call
-            if (isValidSignUp(fullName, email, password)) {
+
+            val newUser = User(
+                id = UUID.randomUUID().toString(),
+                email = email,
+                username = fullName,
+                password = password
+            )
+
+            val isRegistered = prefsManager.registerUser(newUser)
+
+            if (isRegistered) {
                 onSignUpSuccess(fullName)
             } else {
                 onSignUpFailure()
@@ -214,20 +236,23 @@ class SignupFragment : Fragment() {
         }, 2000)
     }
 
-    private fun isValidSignUp(fullName: String, email: String, password: String): Boolean {
-        // For demo purposes - replace with actual sign-up logic
-        return fullName.isNotEmpty() &&
-                Patterns.EMAIL_ADDRESS.matcher(email).matches() &&
-                password.length >= 6
-    }
-
     private fun onSignUpSuccess(fullName: String) {
         showToast("Account created successfully!")
-        navigateToMainScreen()
+        navigateToLogin()
     }
 
     private fun onSignUpFailure() {
-        showToast("Sign up failed. Please try again.")
+        showToast("Email already exists. Please use a different email.")
+    }
+
+    private fun navigateToLogin() {
+        val loginFragment = LoginFragment.newInstance()
+
+        requireActivity().supportFragmentManager.beginTransaction()
+            .replace(R.id.fragment_container, loginFragment)
+            .commit()
+
+        showToast("Please login with your new account")
     }
 
     private fun signUpWithGoogle() {
@@ -238,21 +263,6 @@ class SignupFragment : Fragment() {
     private fun signUpWithFacebook() {
         // Implement Facebook Sign-Up logic here
         showToast("Facebook Sign-Up clicked")
-    }
-
-    private fun navigateToLogin() {
-        showToast("Navigate to Login")
-        // Using Navigation Component
-        // findNavController().navigate(R.id.action_signUpFragment_to_loginFragment)
-        // Or if using activity:
-        // requireActivity().onBackPressed()
-    }
-
-    private fun navigateToMainScreen() {
-        showToast("Navigating to main screen...")
-        // Navigate to your main activity or home fragment
-        // Example using Navigation Component:
-        // findNavController().navigate(R.id.action_signUpFragment_to_homeFragment)
     }
 
     private fun togglePasswordVisibility() {

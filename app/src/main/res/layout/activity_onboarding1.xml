@@ -12,14 +12,14 @@
         android:id="@+id/tvSkip"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_gravity="end"
+        android:clickable="true"
+        android:focusable="true"
+        android:padding="16dp"
         android:text="Skip"
         android:textColor="@color/primary_blue"
         android:textSize="16sp"
-        android:textStyle="bold"
-        android:layout_gravity="end"
-        android:padding="16dp"
-        android:clickable="true"
-        android:focusable="true" />
+        android:textStyle="bold" />
 
     <ImageView
         android:layout_width="300dp"
