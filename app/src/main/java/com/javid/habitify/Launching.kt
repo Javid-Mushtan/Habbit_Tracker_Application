@@ -6,7 +6,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.lifecycleScope
 import com.javid.habitify.utils.PrefsManager
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class Launching : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -14,14 +17,19 @@ class Launching : AppCompatActivity() {
         enableEdgeToEdge()
         setContentView(R.layout.activity_launching)
 
-        var sp : PrefsManager = PrefsManager(this)
+        val sp = PrefsManager(this)
 
-        println(sp.sharedPref)
-        if(sp.isFirstLaunch()){
+        lifecycleScope.launch {
+            delay(3000)
             sp.setFirstLaunch(true)
-            startActivity(Intent(this@Launching, Onboarding1::class.java))
-        } else {
-            startActivity(Intent(this@Launching, MainActivity::class.java))
+            if (sp.isFirstLaunch()) {
+                sp.setFirstLaunch(false)
+                startActivity(Intent(this@Launching, Onboarding1::class.java))
+            } else {
+                startActivity(Intent(this@Launching, MainActivity::class.java))
+            }
+
+            finish()
         }
     }
 }

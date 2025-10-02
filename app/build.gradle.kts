@@ -42,8 +42,8 @@ android {
 }
 
 dependencies {
-
-    implementation("com.google.code.gson:gson:2.11.0")
+    implementation("com.google.code.gson:gson:2.10.1")
+    implementation(libs.gson)
     implementation(libs.androidx.recyclerview)
     implementation(libs.androidx.lifecycle.viewmodel.ktx.v262)
     implementation(libs.androidx.lifecycle.livedata.ktx.v262)

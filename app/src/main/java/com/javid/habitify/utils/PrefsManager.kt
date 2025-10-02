@@ -50,12 +50,11 @@ class PrefsManager(private val context: Context) {
     }
 
     fun logout() {
-        val currentUser = getCurrentUser()
-        currentUser?.let {
-            setCurrentUser(it.copy(isLoggedIn = false))
+        sharedPref.edit {
+            remove(KEY_CURRENT_USER)
+            putBoolean(KEY_IS_LOGGED_IN, false)
+            putBoolean(KEY_REMEMBER_ME, false)
         }
-        setLoggedIn(false)
-        setRememberMe(false)
     }
 
     fun setRememberMe(remember: Boolean) {
@@ -202,7 +201,7 @@ class PrefsManager(private val context: Context) {
     }
 
     fun clearAllData() {
-        sharedPref.edit().clear().apply()
+        sharedPref.edit { clear() }
     }
 
     fun hasUsers(): Boolean {

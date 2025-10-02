@@ -20,6 +20,7 @@ import androidx.fragment.app.Fragment
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.javid.habitify.CategoriesActivity
+import com.javid.habitify.ProfileActivity
 import com.javid.habitify.R
 import com.javid.habitify.model.Habit
 import com.javid.habitify.receivers.HabitReminderReceiver
@@ -131,7 +132,7 @@ class HomeFragment : Fragment() {
         }
     }
 
-    // 🎯 DYNAMIC HABITS MANAGEMENT
+
     private fun loadHabits() {
         habitsList.clear()
 
@@ -383,14 +384,16 @@ class HomeFragment : Fragment() {
     }
 
     private fun showProfile() {
-        AlertDialog.Builder(requireContext())
-            .setTitle("Profile")
-            .setMessage("User Profile Information\n\nName: John Doe\nEmail: john@example.com\nMember since: 2024")
-            .setPositiveButton("Edit Profile") { _, _ ->
-                showToast("Edit Profile")
-            }
-            .setNegativeButton("Close", null)
-            .show()
+        val intent = Intent(requireContext(), ProfileActivity::class.java)
+        val sp = PrefsManager(requireContext())
+        val bundle : Bundle = Bundle().apply {
+            putString("name",sp.getCurrentUser()?.username)
+            putString("id",sp.getCurrentUser()?.id)
+            putString("email",sp.getCurrentUser()?.email)
+        }
+        intent.putExtra("user",bundle)
+        startActivity(intent)
+        showToast("Profile")
     }
 
     private fun navigateToHabits() {

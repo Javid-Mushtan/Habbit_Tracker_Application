@@ -13,7 +13,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.FragmentManager
+import com.javid.habitify.MainActivity
 import com.javid.habitify.R
 import com.javid.habitify.model.User
 import com.javid.habitify.utils.PrefsManager
@@ -76,15 +76,13 @@ class SignupFragment : Fragment() {
     }
 
     private fun setupClickListeners() {
-        already.setOnClickListener {
-            PrefsManager(requireContext()).logout()
-
-            val loginfragment = LoginFragment.newInstance()
-            requireActivity().supportFragmentManager.beginTransaction()
-                .replace(R.id.fragment_container, loginfragment)
-                .addToBackStack("login")
-                .commit()
+        // Use only ONE click listener to avoid conflicts
+        val loginClickListener = View.OnClickListener {
+            navigateToLogin()
         }
+
+        already.setOnClickListener(loginClickListener)
+        tvLogin.setOnClickListener(loginClickListener)
 
         btnSignUp.setOnClickListener {
             attemptSignUp()
@@ -98,10 +96,6 @@ class SignupFragment : Fragment() {
             signUpWithFacebook()
         }
 
-        tvLogin.setOnClickListener {
-            navigateToLogin()
-        }
-
         ibTogglePassword.setOnClickListener {
             togglePasswordVisibility()
         }
@@ -112,7 +106,6 @@ class SignupFragment : Fragment() {
     }
 
     private fun setupTextWatchers() {
-        // Clear errors when user starts typing
         val textWatcher = object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
@@ -145,11 +138,8 @@ class SignupFragment : Fragment() {
         confirmPassword: String
     ): Boolean {
         var isValid = true
-
-        // Clear previous errors
         clearErrors()
 
-        // Validate full name
         if (fullName.isEmpty()) {
             setFullNameError("Full name is required")
             isValid = false
@@ -158,7 +148,6 @@ class SignupFragment : Fragment() {
             isValid = false
         }
 
-        // Validate email
         when {
             email.isEmpty() -> {
                 setEmailError("Email is required")
@@ -170,7 +159,6 @@ class SignupFragment : Fragment() {
             }
         }
 
-        // Validate password
         when {
             password.isEmpty() -> {
                 setPasswordError("Password is required")
@@ -178,18 +166,6 @@ class SignupFragment : Fragment() {
             }
             password.length < 6 -> {
                 setPasswordError("Password must be at least 6 characters")
-                isValid = false
-            }
-            !password.matches(".*[A-Z].*".toRegex()) -> {
-                setPasswordError("Password must contain at least one uppercase letter")
-                isValid = false
-            }
-            !password.matches(".*[a-z].*".toRegex()) -> {
-                setPasswordError("Password must contain at least one lowercase letter")
-                isValid = false
-            }
-            !password.matches(".*\\d.*".toRegex()) -> {
-                setPasswordError("Password must contain at least one number")
                 isValid = false
             }
         }
@@ -217,17 +193,20 @@ class SignupFragment : Fragment() {
         setSignUpButtonState(isLoading = true)
 
         Handler(Looper.getMainLooper()).postDelayed({
-
             val newUser = User(
                 id = UUID.randomUUID().toString(),
                 email = email,
                 username = fullName,
-                password = password
+                password = password,
+                isLoggedIn = true
             )
 
             val isRegistered = prefsManager.registerUser(newUser)
 
             if (isRegistered) {
+                prefsManager.setCurrentUser(newUser)
+                prefsManager.setLoggedIn(true)
+
                 onSignUpSuccess(fullName)
             } else {
                 onSignUpFailure()
@@ -237,8 +216,8 @@ class SignupFragment : Fragment() {
     }
 
     private fun onSignUpSuccess(fullName: String) {
-        showToast("Account created successfully!")
-        navigateToLogin()
+        showToast("Welcome $fullName! Account created successfully!")
+        (requireActivity() as? MainActivity)?.showHomeFragmentAfterLogin()
     }
 
     private fun onSignUpFailure() {
@@ -246,22 +225,25 @@ class SignupFragment : Fragment() {
     }
 
     private fun navigateToLogin() {
-        val loginFragment = LoginFragment.newInstance()
+        try {
+            val loginFragment = LoginFragment.newInstance()
+            requireActivity().supportFragmentManager.beginTransaction()
+                .replace(R.id.fragment_container, loginFragment)
+                .addToBackStack("signup")
+                .commit()
 
-        requireActivity().supportFragmentManager.beginTransaction()
-            .replace(R.id.fragment_container, loginFragment)
-            .commit()
-
-        showToast("Please login with your new account")
+            showToast("Navigating to login...")
+        } catch (e: Exception) {
+            e.printStackTrace()
+            showToast("Error: Could not open login screen")
+        }
     }
 
     private fun signUpWithGoogle() {
-        // Implement Google Sign-Up logic here
         showToast("Google Sign-Up clicked")
     }
 
     private fun signUpWithFacebook() {
-        // Implement Facebook Sign-Up logic here
         showToast("Facebook Sign-Up clicked")
     }
 
@@ -269,12 +251,11 @@ class SignupFragment : Fragment() {
         isPasswordVisible = !isPasswordVisible
         if (isPasswordVisible) {
             etPassword.transformationMethod = null
-            //ibTogglePassword.setImageResource(R.drawable.ic_visibility_off)
+            // ibTogglePassword.setImageResource(R.drawable.ic_visibility_off)
         } else {
             etPassword.transformationMethod = PasswordTransformationMethod.getInstance()
-//            ibTogglePassword.setImageResource(R.drawable.ic_visibility)
+            // ibTogglePassword.setImageResource(R.drawable.ic_visibility)
         }
-        // Move cursor to end
         etPassword.setSelection(etPassword.text.length)
     }
 
@@ -282,12 +263,11 @@ class SignupFragment : Fragment() {
         isConfirmPasswordVisible = !isConfirmPasswordVisible
         if (isConfirmPasswordVisible) {
             etConfirmPassword.transformationMethod = null
-            //ibToggleConfirmPassword.setImageResource(R.drawable.ic_visibility_off)
+            // ibToggleConfirmPassword.setImageResource(R.drawable.ic_visibility_off)
         } else {
             etConfirmPassword.transformationMethod = PasswordTransformationMethod.getInstance()
-            //ibToggleConfirmPassword.setImageResource(R.drawable.ic_visibility)
+            // ibToggleConfirmPassword.setImageResource(R.drawable.ic_visibility)
         }
-        // Move cursor to end
         etConfirmPassword.setSelection(etConfirmPassword.text.length)
     }
 
@@ -297,7 +277,6 @@ class SignupFragment : Fragment() {
         progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
     }
 
-    // Helper methods for error handling
     private fun setFullNameError(error: String) {
         etFullName.error = error
     }
