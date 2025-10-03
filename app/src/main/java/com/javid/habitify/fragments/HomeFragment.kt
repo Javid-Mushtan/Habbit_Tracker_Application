@@ -22,6 +22,7 @@ import com.google.gson.reflect.TypeToken
 import com.javid.habitify.CategoriesActivity
 import com.javid.habitify.ProfileActivity
 import com.javid.habitify.R
+import com.javid.habitify.SpecialHabitsActivity
 import com.javid.habitify.model.Habit
 import com.javid.habitify.receivers.HabitReminderReceiver
 import com.javid.habitify.services.HabitReminderService
@@ -397,7 +398,8 @@ class HomeFragment : Fragment() {
     }
 
     private fun navigateToHabits() {
-        showToast("Navigating to Habits Management")
+        startActivity(Intent(requireContext(), SpecialHabitsActivity::class.java))
+        showToast("Navigating to Special Prebuild Habits")
     }
 
     private fun navigateToTasks() {

@@ -21,4 +21,18 @@
     <color name="primary_dark">#FF1976D2</color>
     <color name="nav_selected_bg">#E3F2FD</color>
     <color name="button_ripple">#1A000000</color>
+    <color name="bmi_underweight">#2196F3</color>
+    <color name="bmi_normal">#4CAF50</color>
+    <color name="bmi_overweight">#FF9800</color>
+    <color name="bmi_obese">#F44336</color>
+    <color name="primary_color">#2196F3</color>
+    <color name="gray">#757575</color>
+    <color name="light_gray">#F5F5F5</color>
+    <color name="water_light">#E3F2FD</color>
+    <color name="water_medium">#90CAF9</color>
+    <color name="water_dark">#2196F3</color>
+    <color name="step_primary">#4CAF50</color>
+    <color name="step_success">#4CAF50</color>
+    <color name="step_danger">#F44336</color>
+    <color name="step_warning">#FF9800</color>
 </resources>

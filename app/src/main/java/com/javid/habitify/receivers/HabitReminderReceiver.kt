@@ -14,30 +14,21 @@ import com.javid.habitify.services.HabitReminderService
 class HabitReminderReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
-        Log.d("HabitReminder", "=== BROADCAST RECEIVER TRIGGERED ===")
-        Log.d("HabitReminder", "Action: ${intent.action}")
-        Log.d("HabitReminder", "Extras: ${intent.extras}")
 
         try {
-            // Ensure service is running
             HabitReminderService.startService(context)
 
             val habitName = intent.getStringExtra("habit_name") ?: "Your habit"
             val habitId = intent.getLongExtra("habit_id", 0L)
 
-            Log.d("HabitReminder", "Showing notification for: $habitName")
-
             showReminderNotification(context, habitName, habitId)
 
-            // Reschedule for next day if it's a daily habit
             val isDaily = intent.getBooleanExtra("is_daily", true)
             if (isDaily) {
-                Log.d("HabitReminder", "Rescheduling daily reminder for: $habitName")
                 rescheduleDailyReminder(context, intent)
             }
 
         } catch (e: Exception) {
-            Log.e("HabitReminder", "Error in receiver: ${e.message}")
             e.printStackTrace()
         }
     }
@@ -95,10 +86,6 @@ class HabitReminderReceiver : BroadcastReceiver() {
             val habitId = originalIntent.getLongExtra("habit_id", 0L)
             val hour = originalIntent.getIntExtra("hour", 9)
             val minute = originalIntent.getIntExtra("minute", 0)
-
-            Log.d("HabitReminder", "Rescheduling for: $habitName at $hour:$minute")
-
-            // Schedule for same time tomorrow
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
             val intent = Intent(context, HabitReminderReceiver::class.java).apply {
                 putExtra("habit_name", habitName)
@@ -121,7 +108,7 @@ class HabitReminderReceiver : BroadcastReceiver() {
                 set(java.util.Calendar.MINUTE, minute)
                 set(java.util.Calendar.SECOND, 0)
                 set(java.util.Calendar.MILLISECOND, 0)
-                add(java.util.Calendar.DAY_OF_MONTH, 1) // Next day
+                add(java.util.Calendar.DAY_OF_MONTH, 1)
             }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
