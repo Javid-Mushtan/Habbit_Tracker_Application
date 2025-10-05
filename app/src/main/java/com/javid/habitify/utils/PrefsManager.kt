@@ -27,6 +27,24 @@ class PrefsManager(private val context: Context) {
 
     private val gson = Gson()
 
+    fun removePreference(key: String) {
+        sharedPref.edit { remove(key) }
+    }
+
+    fun getAllPreferences(): Map<String, *> {
+        return sharedPref.all
+    }
+
+    fun removeUserPreference(key: String) {
+        val user = getCurrentUser()
+        user?.let {
+            val preferences = it.preferences.toMutableMap()
+            preferences.remove(key)
+            val updatedUser = it.copy(preferences = preferences)
+            updateUser(updatedUser)
+        }
+    }
+
     fun setLoggedIn(isLoggedIn: Boolean) {
         sharedPref.edit { putBoolean(KEY_IS_LOGGED_IN, isLoggedIn) }
     }

@@ -2,11 +2,16 @@ package com.javid.habitify.fragments
 
 import android.app.AlertDialog
 import android.app.AlarmManager
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.TimePickerDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
+import android.media.AudioAttributes
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -15,6 +20,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.google.gson.Gson
@@ -83,6 +89,8 @@ class HomeFragment : Fragment() {
         updateUI()
 
         requestNotificationPermission()
+
+        HabitReminderService.startService(requireContext())
     }
 
     override fun onDestroy() {
@@ -97,7 +105,6 @@ class HomeFragment : Fragment() {
         fabAdd = view.findViewById(R.id.fabAdd)
         bottomNavigationView = view.findViewById(R.id.bottomNavigationView)
 
-        // Bottom nav items
         navPremium = view.findViewById(R.id.navPremium)
         navToday = view.findViewById(R.id.navToday)
         navHabits = view.findViewById(R.id.navHabits)
@@ -105,7 +112,6 @@ class HomeFragment : Fragment() {
         navCategories = view.findViewById(R.id.navCategories)
         navTimer = view.findViewById(R.id.navTimer)
 
-        // Toolbar items
         toolbarTitle = view.findViewById(R.id.toolbarTitle)
         toolbarSearch = view.findViewById(R.id.toolbarSearch)
         toolbarNotifications = view.findViewById(R.id.toolbarNotifications)
@@ -132,7 +138,6 @@ class HomeFragment : Fragment() {
             showProfile()
         }
     }
-
 
     private fun loadHabits() {
         habitsList.clear()
@@ -504,7 +509,6 @@ class HomeFragment : Fragment() {
             addHabit(newHabit)
             dialog.dismiss()
             currentDialog = null
-            testNotification()
         }
 
         dialog.show()
@@ -603,18 +607,6 @@ class HomeFragment : Fragment() {
 
         try {
             val (hour, minute) = parseTime(habit.reminderTime!!)
-            val currentTime = Calendar.getInstance()
-            val scheduledTime = Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, hour)
-                set(Calendar.MINUTE, minute)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-
-                if (before(currentTime)) {
-                    add(Calendar.DAY_OF_MONTH, 1)
-                }
-            }
-
             val alarmManager = requireContext().getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
             val intent = Intent(requireContext(), HabitReminderReceiver::class.java).apply {
@@ -632,38 +624,40 @@ class HomeFragment : Fragment() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
+            val firstTriggerTime = calculateFirstTriggerTime(hour, minute)
+
+            Log.d("HabitReminder", "Scheduling alarm for ${habit.name} at ${Date(firstTriggerTime)}")
+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 if (alarmManager.canScheduleExactAlarms()) {
                     alarmManager.setExactAndAllowWhileIdle(
                         AlarmManager.RTC_WAKEUP,
-                        scheduledTime.timeInMillis,
+                        firstTriggerTime,
                         pendingIntent
                     )
                 } else {
-                    alarmManager.set(AlarmManager.RTC_WAKEUP, scheduledTime.timeInMillis, pendingIntent)
+                    alarmManager.setAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        firstTriggerTime,
+                        pendingIntent
+                    )
+                    Log.w("HabitReminder", "Using inexact alarm due to permission restrictions")
                 }
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 alarmManager.setExactAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
-                    scheduledTime.timeInMillis,
+                    firstTriggerTime,
                     pendingIntent
                 )
             } else {
                 alarmManager.setExact(
                     AlarmManager.RTC_WAKEUP,
-                    scheduledTime.timeInMillis,
+                    firstTriggerTime,
                     pendingIntent
                 )
             }
 
-            alarmManager.setRepeating(
-                AlarmManager.RTC_WAKEUP,
-                scheduledTime.timeInMillis,
-                AlarmManager.INTERVAL_DAY,
-                pendingIntent
-            )
-
-            Log.d("HabitReminder", "Alarm scheduled for: ${habit.name} at ${habit.reminderTime}")
+            Log.d("HabitReminder", "Alarm scheduled for: ${habit.name} at ${habit.reminderTime} (first trigger: ${Date(firstTriggerTime)})")
             showToast("⏰ Reminder set for ${habit.reminderTime}")
 
         } catch (e: SecurityException) {
@@ -673,6 +667,74 @@ class HomeFragment : Fragment() {
             Log.e("HabitReminder", "Failed to schedule alarm: ${e.message}")
             showToast("Failed to schedule reminder: ${e.message}")
         }
+    }
+
+    private fun testSoundImmediately() {
+        try {
+            Log.d("SoundTest", "Testing sound playback...")
+
+            val notificationManager = requireContext().getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                notificationManager.deleteNotificationChannel("sound_test_channel")
+
+                val soundURI = Uri.parse("android.resource://${requireContext().packageName}/${R.raw.alarm}")
+                Log.d("SoundTest", "Sound URI: $soundURI")
+
+                val audioAttributes = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+
+                val channel = NotificationChannel(
+                    "sound_test_channel",
+                    "Sound Test Channel",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Test channel for alarm sound"
+                    enableLights(true)
+                    lightColor = Color.RED
+                    enableVibration(true)
+                    vibrationPattern = longArrayOf(0, 1000, 500, 1000)
+                    setSound(soundURI, audioAttributes)
+                    lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
+                }
+                notificationManager.createNotificationChannel(channel)
+            }
+
+            val notification = NotificationCompat.Builder(requireContext(), "sound_test_channel")
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle("🔊 Sound Test")
+                .setContentText("Testing alarm sound - you should hear it now!")
+                .setPriority(NotificationCompat.PRIORITY_MAX) // Use MAX priority
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setAutoCancel(true)
+                .setOnlyAlertOnce(false)
+                .build()
+
+            notificationManager.notify(12345, notification)
+            Log.d("SoundTest", "Test notification shown")
+            showToast("🔊 Testing alarm sound NOW - check volume!")
+
+        } catch (e: Exception) {
+            Log.e("SoundTest", "Error testing sound: ${e.message}")
+            showToast("Sound test failed: ${e.message}")
+        }
+    }
+
+    private fun calculateFirstTriggerTime(hour: Int, minute: Int): Long {
+        val calendar = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, hour)
+            set(Calendar.MINUTE, minute)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+
+            // If the time has already passed today, schedule for tomorrow
+            if (timeInMillis <= System.currentTimeMillis()) {
+                add(Calendar.DAY_OF_MONTH, 1)
+            }
+        }
+        return calendar.timeInMillis
     }
 
     private fun cancelHabitReminder(habitId: Long) {
@@ -731,7 +793,6 @@ class HomeFragment : Fragment() {
         Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
     }
 
-    // Notification permission methods
     private fun hasNotificationPermission(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             ContextCompat.checkSelfPermission(
@@ -766,73 +827,10 @@ class HomeFragment : Fragment() {
                 if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     showToast("Notification permission granted!")
                     HabitReminderService.startService(requireContext())
-                    testNotification()
                 } else {
                     showToast("Notification permission denied. Reminders won't work.")
                 }
             }
-        }
-    }
-
-    private fun testNotification() {
-        if (!hasNotificationPermission()) {
-            showToast("Please grant notification permission first")
-            requestNotificationPermission()
-            return
-        }
-
-        HabitReminderService.startService(requireContext())
-
-        try {
-            val alarmManager = requireContext().getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            val intent = Intent(requireContext(), HabitReminderReceiver::class.java).apply {
-                putExtra("habit_name", "Test Habit - Drink Water")
-                putExtra("habit_id", 9999L)
-                putExtra("test_notification", true)
-            }
-
-            val pendingIntent = PendingIntent.getBroadcast(
-                requireContext(),
-                9999,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-
-            val testTime = Calendar.getInstance().apply {
-                add(Calendar.SECOND, 30)
-            }
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (alarmManager.canScheduleExactAlarms()) {
-                    alarmManager.setExactAndAllowWhileIdle(
-                        AlarmManager.RTC_WAKEUP,
-                        testTime.timeInMillis,
-                        pendingIntent
-                    )
-                }
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    testTime.timeInMillis,
-                    pendingIntent
-                )
-            } else {
-                alarmManager.setExact(
-                    AlarmManager.RTC_WAKEUP,
-                    testTime.timeInMillis,
-                    pendingIntent
-                )
-            }
-
-            Log.d("HabitReminder", "Test alarm scheduled for 30 seconds from now")
-            showToast("Test notification scheduled for 30 seconds from now")
-
-        } catch (e: SecurityException) {
-            Log.e("HabitReminder", "Security Exception: ${e.message}")
-            showToast("Cannot schedule exact alarms. Please check app permissions.")
-        } catch (e: Exception) {
-            Log.e("HabitReminder", "Failed to schedule test alarm: ${e.message}")
-            showToast("Failed to schedule test notification: ${e.message}")
         }
     }
 

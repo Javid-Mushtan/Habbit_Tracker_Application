@@ -8,7 +8,13 @@ import android.view.ViewGroup
 import android.widget.*
 import androidx.cardview.widget.CardView
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import com.javid.habitify.R
+import com.javid.habitify.model.WaterLog
+import com.javid.habitify.services.WaterReminderService
+import com.javid.habitify.services.WaterResetService
+import com.javid.habitify.utils.PrefsManager
+import com.javid.habitify.viewmodel.WaterTrackerViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.min
@@ -27,10 +33,14 @@ class WaterTrackerFragment : Fragment() {
     private lateinit var btnCustom: Button
     private lateinit var logsContainer: LinearLayout
     private lateinit var tvNoLogs: TextView
+    private lateinit var goalCompletedView: CardView
+    private lateinit var btnResetToday: Button
+    private lateinit var btnToggleReminders: Button
+    private lateinit var remindersStatusView: CardView
+    private lateinit var tvRemindersStatus: TextView
 
-    private var dailyGoal = 2000
-    private var currentIntake = 0
-    private val todayLogs = mutableListOf<WaterLog>()
+    private val viewModel: WaterTrackerViewModel by viewModels()
+    private lateinit var prefsManager: PrefsManager
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -38,10 +48,15 @@ class WaterTrackerFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.fragment_water_tracker, container, false)
+        prefsManager = PrefsManager(requireContext())
 
         initializeViews(view)
         setupClickListeners()
-        updateUI()
+        setupObservers()
+
+        viewModel.initialize(prefsManager)
+
+        WaterResetService.scheduleDailyReset(requireContext())
 
         return view
     }
@@ -59,6 +74,46 @@ class WaterTrackerFragment : Fragment() {
         btnCustom = view.findViewById(R.id.btnCustom)
         logsContainer = view.findViewById(R.id.logsContainer)
         tvNoLogs = view.findViewById(R.id.tvNoLogs)
+
+        goalCompletedView = view.findViewById(R.id.goalCompletedView)
+        btnResetToday = view.findViewById(R.id.btnResetToday)
+
+        // Add these new views for reminders
+        btnToggleReminders = view.findViewById(R.id.btnToggleReminders)
+        remindersStatusView = view.findViewById(R.id.remindersStatusView)
+        tvRemindersStatus = view.findViewById(R.id.tvRemindersStatus)
+    }
+
+    private fun setupObservers() {
+        viewModel.dailyGoal.observe(viewLifecycleOwner) { goal ->
+            tvCurrentGoal.text = "Current goal: $goal ml"
+            updateProgressDisplay()
+            // Check if we should schedule reminders when goal changes
+            checkAndScheduleReminders()
+        }
+
+        viewModel.currentIntake.observe(viewLifecycleOwner) { intake ->
+            updateProgressDisplay()
+            // Check if we should schedule/cancel reminders when intake changes
+            checkAndScheduleReminders()
+        }
+
+        viewModel.todayLogs.observe(viewLifecycleOwner) { logs ->
+            updateLogsDisplay(logs)
+        }
+
+        viewModel.isGoalCompleted.observe(viewLifecycleOwner) { completed ->
+            goalCompletedView.visibility = if (completed) View.VISIBLE else View.GONE
+            if (completed) {
+                showToast("🎉 Daily water goal completed!")
+                // Cancel reminders when goal is completed
+                WaterReminderService.cancelAllReminders(requireContext())
+                updateRemindersStatus()
+            }
+        }
+
+        // Update reminders status initially
+        updateRemindersStatus()
     }
 
     private fun setupClickListeners() {
@@ -67,19 +122,30 @@ class WaterTrackerFragment : Fragment() {
         }
 
         btn100ml.setOnClickListener {
-            logWater(100)
+            viewModel.addWaterLog(100)
+            showToast("Logged 100 ml of water")
         }
 
         btn200ml.setOnClickListener {
-            logWater(200)
+            viewModel.addWaterLog(200)
+            showToast("Logged 200 ml of water")
         }
 
         btn300ml.setOnClickListener {
-            logWater(300)
+            viewModel.addWaterLog(300)
+            showToast("Logged 300 ml of water")
         }
 
         btnCustom.setOnClickListener {
             showCustomAmountDialog()
+        }
+
+        btnResetToday.setOnClickListener {
+            showResetConfirmation()
+        }
+
+        btnToggleReminders.setOnClickListener {
+            toggleReminders()
         }
     }
 
@@ -88,9 +154,8 @@ class WaterTrackerFragment : Fragment() {
         if (goalText.isNotEmpty()) {
             val newGoal = goalText.toInt()
             if (newGoal > 0) {
-                dailyGoal = newGoal
+                viewModel.setDailyGoal(newGoal)
                 etDailyGoal.text.clear()
-                updateUI()
                 showToast("Daily goal set to $newGoal ml")
             } else {
                 showToast("Please enter a positive number")
@@ -98,15 +163,6 @@ class WaterTrackerFragment : Fragment() {
         } else {
             showToast("Please enter a daily goal")
         }
-    }
-
-    private fun logWater(amount: Int) {
-        currentIntake += amount
-        val currentTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
-        todayLogs.add(WaterLog(amount, currentTime))
-
-        updateUI()
-        showToast("Logged $amount ml of water")
     }
 
     private fun showCustomAmountDialog() {
@@ -121,7 +177,8 @@ class WaterTrackerFragment : Fragment() {
                 if (amountText.isNotEmpty()) {
                     val amount = amountText.toInt()
                     if (amount > 0) {
-                        logWater(amount)
+                        viewModel.addWaterLog(amount)
+                        showToast("Logged $amount ml of water")
                     } else {
                         showToast("Please enter a positive number")
                     }
@@ -134,35 +191,110 @@ class WaterTrackerFragment : Fragment() {
             .show()
     }
 
-    private fun updateUI() {
-        tvCurrentGoal.text = "Current goal: $dailyGoal ml"
+    private fun showResetConfirmation() {
+        AlertDialog.Builder(requireContext())
+            .setTitle("Reset Today's Data")
+            .setMessage("Are you sure you want to reset today's water intake?")
+            .setPositiveButton("Reset") { dialog, _ ->
+                viewModel.clearTodayData()
+                showToast("Today's data reset")
+                // Cancel reminders when data is reset
+                WaterReminderService.cancelAllReminders(requireContext())
+                updateRemindersStatus()
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancel") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .show()
+    }
 
-        val progress = min(currentIntake.toFloat() / dailyGoal, 1.0f)
-        tvProgress.text = "$currentIntake/$dailyGoal ml"
-        tvRemaining.text = "Remaining: ${dailyGoal - currentIntake} ml"
+    private fun toggleReminders() {
+        if (WaterReminderService.areRemindersActive(requireContext())) {
+            WaterReminderService.cancelAllReminders(requireContext())
+            showToast("🔕 Hourly reminders disabled")
+        } else {
+            // Schedule reminders if goal is not completed
+            val goal = viewModel.dailyGoal.value ?: 2000
+            val intake = viewModel.currentIntake.value ?: 0
+            if (intake < goal) {
+                WaterReminderService.scheduleReminders(requireContext())
+                showToast("🔔 Hourly reminders enabled")
+            } else {
+                showToast("🎯 Goal already completed - no reminders needed")
+            }
+        }
+        updateRemindersStatus()
+    }
 
+    private fun checkAndScheduleReminders() {
+        val goal = viewModel.dailyGoal.value ?: 2000
+        val intake = viewModel.currentIntake.value ?: 0
+
+        if (intake < goal) {
+            // Auto-enable reminders if they're not active and goal is not completed
+            if (!WaterReminderService.areRemindersActive(requireContext())) {
+                WaterReminderService.scheduleReminders(requireContext())
+                updateRemindersStatus()
+            }
+        } else {
+            // Cancel reminders if goal is completed
+            WaterReminderService.cancelAllReminders(requireContext())
+            updateRemindersStatus()
+        }
+    }
+
+    private fun updateRemindersStatus() {
+        val remindersActive = WaterReminderService.areRemindersActive(requireContext())
+
+        if (remindersActive) {
+            remindersStatusView.visibility = View.VISIBLE
+            tvRemindersStatus.text = "🔔 Hourly reminders active"
+            btnToggleReminders.text = "Disable Reminders"
+            btnToggleReminders.setBackgroundColor(resources.getColor(R.color.red, null))
+        } else {
+            remindersStatusView.visibility = View.GONE
+            btnToggleReminders.text = "Enable Reminders"
+            btnToggleReminders.setBackgroundColor(resources.getColor(R.color.primary_color, null))
+        }
+    }
+
+    private fun updateProgressDisplay() {
+        val goal = viewModel.dailyGoal.value ?: 2000
+        val intake = viewModel.currentIntake.value ?: 0
+
+        tvProgress.text = "$intake/$goal ml"
+        tvRemaining.text = "Remaining: ${goal - intake} ml"
+
+        val progress = min(intake.toFloat() / goal, 1.0f)
         updateProgressCircle(progress)
-
-        updateLogsDisplay()
     }
 
     private fun updateProgressCircle(progress: Float) {
         val scale = 0.3f + (0.7f * progress)
         progressCircle.scaleX = scale
         progressCircle.scaleY = scale
+
+        val color = when {
+            progress >= 1.0f -> R.color.green_dark
+            progress >= 0.7f -> R.color.water_dark
+            progress >= 0.4f -> R.color.water_medium
+            else -> R.color.water_light
+        }
+        progressCircle.setBackgroundColor(resources.getColor(color, null))
     }
 
-    private fun updateLogsDisplay() {
+    private fun updateLogsDisplay(logs: List<WaterLog>) {
         logsContainer.removeAllViews()
 
-        if (todayLogs.isEmpty()) {
+        if (logs.isEmpty()) {
             tvNoLogs.visibility = View.VISIBLE
             logsContainer.visibility = View.GONE
         } else {
             tvNoLogs.visibility = View.GONE
             logsContainer.visibility = View.VISIBLE
 
-            todayLogs.reversed().forEach { log ->
+            logs.reversed().forEach { log ->
                 val logView = LayoutInflater.from(requireContext())
                     .inflate(R.layout.item_water_log, logsContainer, false)
 
@@ -181,7 +313,9 @@ class WaterTrackerFragment : Fragment() {
         Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
     }
 
-    data class WaterLog(val amount: Int, val time: String)
+    override fun onDestroy() {
+        super.onDestroy()
+    }
 
     companion object {
         fun newInstance(): WaterTrackerFragment {

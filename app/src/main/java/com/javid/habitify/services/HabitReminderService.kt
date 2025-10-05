@@ -45,7 +45,7 @@ class HabitReminderService : Service() {
 
     companion object {
         private const val CHANNEL_ID = "habit_service_channel"
-        private const val NOTIFICATION_ID = 1212
+        private const val NOTIFICATION_ID = 1001
 
         fun startService(context: Context) {
             val intent = Intent(context, HabitReminderService::class.java)

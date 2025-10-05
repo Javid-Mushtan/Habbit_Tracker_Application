@@ -6,16 +6,25 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.media.AudioAttributes
+import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.javid.habitify.R
 import com.javid.habitify.services.HabitReminderService
 
 class HabitReminderReceiver : BroadcastReceiver() {
 
-    override fun onReceive(context: Context, intent: Intent) {
+    companion object {
+        private const val CHANNEL_ID = "habit_reminders_channel"
+    }
 
+    override fun onReceive(context: Context, intent: Intent) {
         try {
+            Log.d("HabitReminder", "🎯 Receiver triggered for: ${intent.getStringExtra("habit_name")}")
+
             HabitReminderService.startService(context)
 
             val habitName = intent.getStringExtra("habit_name") ?: "Your habit"
@@ -29,6 +38,7 @@ class HabitReminderReceiver : BroadcastReceiver() {
             }
 
         } catch (e: Exception) {
+            Log.e("HabitReminder", "❌ Error in receiver: ${e.message}")
             e.printStackTrace()
         }
     }
@@ -38,45 +48,83 @@ class HabitReminderReceiver : BroadcastReceiver() {
             val notificationManager =
                 context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-            createNotificationChannel(notificationManager)
+            createNotificationChannel(context, notificationManager)
 
-            val notification = NotificationCompat.Builder(context, "habit_reminders")
+            // Try multiple sound sources
+            val soundUri = getAlarmSoundUri(context)
+            Log.d("HabitReminder", "Using sound URI: $soundUri")
+
+            val notification = NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setContentTitle("⏰ Habit Reminder")
                 .setContentText("Time for: $habitName")
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
                 .setAutoCancel(true)
-                .setColor(Color.BLUE)
-                .setStyle(NotificationCompat.BigTextStyle()
-                    .bigText("Don't forget to complete your habit: $habitName. Stay consistent!"))
+                .setColor(Color.RED)
+                .setOnlyAlertOnce(false)
+                .setSound(soundUri)
+                .setStyle(
+                    NotificationCompat.BigTextStyle()
+                        .bigText("Don't forget to complete your habit: $habitName. Stay consistent!")
+                )
                 .build()
 
             val notificationId = habitId.toInt()
             notificationManager.notify(notificationId, notification)
 
-            Log.d("HabitReminder", "✅ Notification shown for: $habitName")
+            Log.d("HabitReminder", "✅ Notification shown for: $habitName with sound: $soundUri")
 
         } catch (e: Exception) {
             Log.e("HabitReminder", "❌ Failed to show notification: ${e.message}")
         }
     }
 
-    private fun createNotificationChannel(notificationManager: NotificationManager) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            if (notificationManager.getNotificationChannel("habit_reminders") == null) {
-                val channel = NotificationChannel(
-                    "habit_reminders",
-                    "Habit Reminders",
-                    NotificationManager.IMPORTANCE_HIGH
-                ).apply {
-                    description = "Reminders for your daily habits"
-                    enableLights(true)
-                    lightColor = Color.BLUE
-                    enableVibration(true)
-                    vibrationPattern = longArrayOf(0, 500, 250, 500)
-                }
-                notificationManager.createNotificationChannel(channel)
+    private fun getAlarmSoundUri(context: Context): Uri {
+        return try {
+            val customSoundUri = Uri.parse("android.resource://${context.packageName}/${R.raw.alarm}")
+            Log.d("HabitReminder", "Trying custom sound: $customSoundUri")
+            customSoundUri
+        } catch (e: Exception) {
+            Log.w("HabitReminder", "Custom sound failed, using default alarm: ${e.message}")
+
+            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM).also {
+                Log.d("HabitReminder", "Using system alarm sound: $it")
             }
+        }
+    }
+
+    private fun createNotificationChannel(context: Context, notificationManager: NotificationManager) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+
+            notificationManager.deleteNotificationChannel(CHANNEL_ID)
+
+            val soundUri = getAlarmSoundUri(context)
+            val audioAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .setFlags(AudioAttributes.FLAG_AUDIBILITY_ENFORCED)
+                .build()
+
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Habit Reminders",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Reminders for your daily habits with alarm sound"
+                enableLights(true)
+                lightColor = Color.RED
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 1000, 500, 1000)
+                setSound(soundUri, audioAttributes)
+                lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
+                setBypassDnd(true)
+
+                importance = NotificationManager.IMPORTANCE_HIGH
+            }
+
+            notificationManager.createNotificationChannel(channel)
+            Log.d("HabitReminder", "🔊 Notification channel created with sound: $soundUri")
         }
     }
 
@@ -86,6 +134,7 @@ class HabitReminderReceiver : BroadcastReceiver() {
             val habitId = originalIntent.getLongExtra("habit_id", 0L)
             val hour = originalIntent.getIntExtra("hour", 9)
             val minute = originalIntent.getIntExtra("minute", 0)
+
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
             val intent = Intent(context, HabitReminderReceiver::class.java).apply {
                 putExtra("habit_name", habitName)
@@ -125,7 +174,7 @@ class HabitReminderReceiver : BroadcastReceiver() {
                 )
             }
 
-            Log.d("HabitReminder", "✅ Daily reminder rescheduled for: $habitName")
+            Log.d("HabitReminder", "✅ Daily reminder rescheduled for: $habitName at $hour:$minute")
 
         } catch (e: Exception) {
             Log.e("HabitReminder", "❌ Error rescheduling: ${e.message}")

@@ -35,4 +35,9 @@
     <color name="step_success">#4CAF50</color>
     <color name="step_danger">#F44336</color>
     <color name="step_warning">#FF9800</color>
+    <color name="green_light">#E8F5E8</color>
+    <color name="green_dark">#2E7D32</color>
+    <color name="blue_light">#E3F2FD</color>
+    <color name="blue_dark">#1976D2</color>
+    <color name="red">#F44336</color>
 </resources>
