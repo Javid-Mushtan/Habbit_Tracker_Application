@@ -40,4 +40,19 @@
     <color name="blue_light">#E3F2FD</color>
     <color name="blue_dark">#1976D2</color>
     <color name="red">#F44336</color>
+    <color name="heart_red">#FF5252</color>
+    <color name="background">#F5F5F5</color>
+    <color name="card_background">#FFFFFF</color>
+    <color name="text_primary">#212121</color>
+    <color name="text_secondary">#757575</color>
+    <color name="divider">#E0E0E0</color>
+    <color name="button_primary">#2196F3</color>
+    <color name="button_secondary">#FF9800</color>
+    <color name="button_success">#4CAF50</color>
+    <color name="button_danger">#F44336</color>
+    <color name="heart_rate_resting">#4CAF50</color>
+    <color name="heart_rate_normal">#2196F3</color>
+    <color name="heart_rate_exercise">#FF9800</color>
+    <color name="heart_rate_high">#FF5722</color>
+    <color name="heart_rate_very_high">#F44336</color>
 </resources>

@@ -9,6 +9,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
 import com.javid.habitify.fragments.BmiCalculatorFragment
 import com.javid.habitify.fragments.FootstepFragment
+import com.javid.habitify.fragments.HeartRateFragment
 import com.javid.habitify.fragments.WaterTrackerFragment
 
 class SpecialHabitsActivity : AppCompatActivity() {
@@ -71,7 +72,7 @@ class SpecialHabitsActivity : AppCompatActivity() {
         }
 
         cardHeart.setOnClickListener {
-            //showFragment(HeartRateFragment.newInstance(), "Heart Rate")
+            showFragment(HeartRateFragment.newInstance(), "Heart Rate")
         }
     }
 
