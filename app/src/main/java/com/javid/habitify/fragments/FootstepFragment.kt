@@ -14,9 +14,17 @@ import android.view.animation.AnimationUtils
 import android.widget.*
 import androidx.cardview.widget.CardView
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
 import com.javid.habitify.R
+import com.javid.habitify.model.FootstepData
+import com.javid.habitify.viewmodels.FootstepViewModel
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 
 class FootstepFragment : Fragment(), SensorEventListener {
+
+    private val viewModel: FootstepViewModel by viewModels()
 
     private lateinit var sensorManager: SensorManager
     public var stepSensor: Sensor? = null
@@ -35,14 +43,12 @@ class FootstepFragment : Fragment(), SensorEventListener {
     private lateinit var ivFootIcon: ImageView
     private lateinit var ivProgressArc: ImageView
 
-    private var stepCount = 0
-    private var dailyGoal = 10000
-    private var isCounting = false
-    private var startTime: Long = 0
-    private var activeTime: Long = 0
-
     private val handler = Handler(Looper.getMainLooper())
     private var stepAnimationRunnable: Runnable? = null
+
+    private var lastAcceleration = 0f
+    private var stepThreshold = 12f
+    private var lastStepTime = 0L
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -54,7 +60,7 @@ class FootstepFragment : Fragment(), SensorEventListener {
         initializeViews(view)
         setupSensor()
         setupClickListeners()
-        updateUI()
+        setupObservers()
 
         return view
     }
@@ -100,7 +106,21 @@ class FootstepFragment : Fragment(), SensorEventListener {
         }
 
         btnReset.setOnClickListener {
-            resetStepCount()
+            viewModel.resetData()
+        }
+    }
+
+    private fun setupObservers() {
+        lifecycleScope.launch {
+            viewModel.footstepData.collect { data ->
+                updateUI(data)
+            }
+        }
+
+        viewModel.statusMessage.observe(viewLifecycleOwner) { message ->
+            if (message.isNotEmpty()) {
+                showToast(message)
+            }
         }
     }
 
@@ -109,10 +129,8 @@ class FootstepFragment : Fragment(), SensorEventListener {
         if (goalText.isNotEmpty()) {
             val newGoal = goalText.toInt()
             if (newGoal > 0) {
-                dailyGoal = newGoal
+                viewModel.setDailyGoal(newGoal)
                 etStepGoal.text.clear()
-                updateUI()
-                showToast("Daily goal set to $newGoal steps")
             } else {
                 showToast("Please enter a positive number")
             }
@@ -122,7 +140,7 @@ class FootstepFragment : Fragment(), SensorEventListener {
     }
 
     private fun toggleStepCounting() {
-        if (!isCounting) {
+        if (!viewModel.footstepData.value.isCounting) {
             startStepCounting()
         } else {
             stopStepCounting()
@@ -132,12 +150,9 @@ class FootstepFragment : Fragment(), SensorEventListener {
     private fun startStepCounting() {
         if (stepSensor != null) {
             sensorManager.registerListener(this, stepSensor, SensorManager.SENSOR_DELAY_FASTEST)
-            isCounting = true
-            startTime = System.currentTimeMillis()
+            viewModel.startCounting()
             btnStart.text = "STOP"
-            tvStatus.text = "Counting steps..."
             startStepAnimation()
-            showToast("Step counting started")
         } else {
             showToast("Step sensor not available on this device")
         }
@@ -145,22 +160,12 @@ class FootstepFragment : Fragment(), SensorEventListener {
 
     private fun stopStepCounting() {
         sensorManager.unregisterListener(this)
-        isCounting = false
-        activeTime += System.currentTimeMillis() - startTime
+        viewModel.stopCounting()
         btnStart.text = "START"
-        tvStatus.text = "Step counting stopped"
         stopStepAnimation()
-        showToast("Step counting stopped")
     }
 
-    private fun resetStepCount() {
-        stepCount = 0
-        activeTime = 0
-        updateUI()
-        showToast("Step count reset")
-    }
-
-    private fun startStepAnimation() {//https://developer.android.com/develop/ui/views/animations/overview and Threads are from
+    private fun startStepAnimation() {
         stepAnimationRunnable = object : Runnable {
             override fun run() {
                 val bounceAnimation = AnimationUtils.loadAnimation(requireContext(), R.anim.bounce)
@@ -183,16 +188,8 @@ class FootstepFragment : Fragment(), SensorEventListener {
             when (it.sensor.type) {
                 Sensor.TYPE_STEP_COUNTER -> {
                     val newSteps = it.values[0].toInt()
-                    if (stepCount == 0) {
-                        stepCount = newSteps
-                    } else {
-                        val stepsSinceLast = newSteps - stepCount
-                        if (stepsSinceLast > 0) {
-                            stepCount = newSteps
-                            updateUI()
-                            animateStepIncrease()
-                        }
-                    }
+                    viewModel.updateStepCount(newSteps, fromSensor = true)
+                    animateStepIncrease()
                 }
                 Sensor.TYPE_ACCELEROMETER -> {
                     detectStepsFromAccelerometer(it.values[0], it.values[1], it.values[2])
@@ -200,10 +197,6 @@ class FootstepFragment : Fragment(), SensorEventListener {
             }
         }
     }
-
-    private var lastAcceleration = 0f
-    private var stepThreshold = 12f
-    private var lastStepTime = 0L
 
     private fun detectStepsFromAccelerometer(x: Float, y: Float, z: Float) {
         val acceleration = Math.sqrt((x * x + y * y + z * z).toDouble()).toFloat()
@@ -213,9 +206,8 @@ class FootstepFragment : Fragment(), SensorEventListener {
         val currentTime = System.currentTimeMillis()
 
         if (delta > stepThreshold && (currentTime - lastStepTime) > 300) {
-            stepCount++
+            viewModel.incrementStep()
             lastStepTime = currentTime
-            updateUI()
             animateStepIncrease()
         }
     }
@@ -224,59 +216,27 @@ class FootstepFragment : Fragment(), SensorEventListener {
         val scaleAnimation = AnimationUtils.loadAnimation(requireContext(), R.anim.scale_up)
         tvStepCount.startAnimation(scaleAnimation)
 
-        val progress = (stepCount.toFloat() / dailyGoal).coerceAtMost(1.0f)
+        val progress = viewModel.goalProgress.coerceAtMost(1.0f)
         ivProgressArc.rotation = progress * 360f
     }
 
-    private fun updateUI() {
-        tvStepCount.text = stepCount.toString()
+    private fun updateUI(data: FootstepData) {
+        tvStepCount.text = data.stepCount.toString()
+        tvGoalProgress.text = "Goal: ${data.stepCount}/${data.dailyGoal}"
+        tvGoalText.text = "Daily goal: ${data.dailyGoal} steps"
 
-        tvGoalProgress.text = "Goal: $stepCount/$dailyGoal"
-        tvGoalText.text = "Daily goal: $dailyGoal steps"
+        tvDistance.text = String.format("%.1f km", viewModel.distance)
+        tvCalories.text = "${viewModel.calories} cal"
+        tvActiveTime.text = "${viewModel.activeMinutes} min"
 
-        val distance = calculateDistance(stepCount)
-        val calories = calculateCalories(stepCount)
-        val activeMinutes = calculateActiveTime()
+        tvStatus.text = viewModel.getStatusMessage()
 
-        tvDistance.text = String.format("%.1f km", distance)
-        tvCalories.text = "${calories} cal"
-        tvActiveTime.text = "${activeMinutes} min"
-
-        updateStatusMessage()
-    }
-
-    private fun calculateDistance(steps: Int): Double {
-        val distanceMeters = steps * 0.762
-        return distanceMeters / 1000 // Convert to kilometers
-    }
-
-    private fun calculateCalories(steps: Int): Int {
-        return (steps * 0.04).toInt()
-    }
-
-    private fun calculateActiveTime(): Long {
-        val totalTime = if (isCounting) {
-            activeTime + (System.currentTimeMillis() - startTime)
-        } else {
-            activeTime
-        }
-        return totalTime / 60000
-    }
-
-    private fun updateStatusMessage() {
-        val progress = stepCount.toFloat() / dailyGoal
-        when {
-            stepCount == 0 -> tvStatus.text = "Let's start walking!"
-            progress < 0.25 -> tvStatus.text = "Great start! Keep going!"
-            progress < 0.5 -> tvStatus.text = "You're doing amazing!"
-            progress < 0.75 -> tvStatus.text = "More than halfway there!"
-            progress < 1.0 -> tvStatus.text = "Almost at your goal!"
-            else -> tvStatus.text = "Goal achieved! 🎉"
-        }
+        val progress = viewModel.goalProgress.coerceAtMost(1.0f)
+        ivProgressArc.rotation = progress * 360f
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-        // Handle accuracy changes if needed
+        // if you want mj mushtan
     }
 
     override fun onPause() {
@@ -286,7 +246,7 @@ class FootstepFragment : Fragment(), SensorEventListener {
 
     override fun onResume() {
         super.onResume()
-        if (isCounting) {
+        if (viewModel.footstepData.value.isCounting) {
             startStepCounting()
         }
     }

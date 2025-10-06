@@ -44,7 +44,6 @@ class HomeFragment : Fragment() {
     private lateinit var fabAdd: ImageButton
     private lateinit var bottomNavigationView: LinearLayout
 
-    // Bottom nav items
     private lateinit var navPremium: TextView
     private lateinit var navToday: TextView
     private lateinit var navHabits: TextView
@@ -52,7 +51,6 @@ class HomeFragment : Fragment() {
     private lateinit var navCategories: TextView
     private lateinit var navTimer: TextView
 
-    // Toolbar items
     private lateinit var toolbarTitle: TextView
     private lateinit var toolbarSearch: ImageButton
     private lateinit var toolbarNotifications: ImageButton
@@ -706,7 +704,7 @@ class HomeFragment : Fragment() {
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setContentTitle("🔊 Sound Test")
                 .setContentText("Testing alarm sound - you should hear it now!")
-                .setPriority(NotificationCompat.PRIORITY_MAX) // Use MAX priority
+                .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setCategory(NotificationCompat.CATEGORY_ALARM)
                 .setAutoCancel(true)
                 .setOnlyAlertOnce(false)
