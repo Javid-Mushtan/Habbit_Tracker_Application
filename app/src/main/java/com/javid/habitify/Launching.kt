@@ -21,7 +21,6 @@ class Launching : AppCompatActivity() {
 
         lifecycleScope.launch {
             delay(3000)
-            sp.setFirstLaunch(true)
             if (sp.isFirstLaunch()) {
                 sp.setFirstLaunch(false)
                 startActivity(Intent(this@Launching, Onboarding1::class.java))

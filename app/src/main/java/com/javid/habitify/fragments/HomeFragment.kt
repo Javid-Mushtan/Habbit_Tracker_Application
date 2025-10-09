@@ -2,16 +2,11 @@ package com.javid.habitify.fragments
 
 import android.app.AlertDialog
 import android.app.AlarmManager
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.TimePickerDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Color
-import android.media.AudioAttributes
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -20,12 +15,12 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 import androidx.core.app.ActivityCompat
-import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.javid.habitify.CategoriesActivity
+import com.javid.habitify.MoodJournalActivity
 import com.javid.habitify.ProfileActivity
 import com.javid.habitify.R
 import com.javid.habitify.SpecialHabitsActivity
@@ -43,13 +38,13 @@ class HomeFragment : Fragment() {
     private lateinit var emptyState: LinearLayout
     private lateinit var fabAdd: ImageButton
     private lateinit var bottomNavigationView: LinearLayout
+    private lateinit var selectedDateLayout: LinearLayout
+    private lateinit var tvSelectedDate: TextView
+    private lateinit var btnAddForDate: Button
 
-    private lateinit var navPremium: TextView
-    private lateinit var navToday: TextView
+    private lateinit var navMain: TextView
     private lateinit var navHabits: TextView
-    private lateinit var navTasks: TextView
-    private lateinit var navCategories: TextView
-    private lateinit var navTimer: TextView
+    private lateinit var navMood: TextView
 
     private lateinit var toolbarTitle: TextView
     private lateinit var toolbarSearch: ImageButton
@@ -61,6 +56,10 @@ class HomeFragment : Fragment() {
     private var currentDialog: AlertDialog? = null
     private lateinit var prefsManager: PrefsManager
     private val gson = Gson()
+
+    private var selectedDate: Date = Date()
+    private val dateFormatDisplay = SimpleDateFormat("EEEE, MMMM d", Locale.getDefault())
+    private val dateFormatStorage = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
@@ -83,11 +82,11 @@ class HomeFragment : Fragment() {
         setupCalendar()
         setupClickListeners()
         setupBottomNavigation()
-        loadHabits()
+        updateSelectedDateDisplay()
+        loadHabitsForSelectedDate()
         updateUI()
 
         requestNotificationPermission()
-
         HabitReminderService.startService(requireContext())
     }
 
@@ -103,12 +102,13 @@ class HomeFragment : Fragment() {
         fabAdd = view.findViewById(R.id.fabAdd)
         bottomNavigationView = view.findViewById(R.id.bottomNavigationView)
 
-        navPremium = view.findViewById(R.id.navPremium)
-        navToday = view.findViewById(R.id.navToday)
+        selectedDateLayout = view.findViewById(R.id.selectedDateLayout)
+        tvSelectedDate = view.findViewById(R.id.tvSelectedDate)
+        btnAddForDate = view.findViewById(R.id.btnAddForDate)
+
+        navMain = view.findViewById(R.id.navMain)
         navHabits = view.findViewById(R.id.navHabits)
-        navTasks = view.findViewById(R.id.navTasks)
-        navCategories = view.findViewById(R.id.navCategories)
-        navTimer = view.findViewById(R.id.navTimer)
+        navMood = view.findViewById(R.id.navMood)
 
         toolbarTitle = view.findViewById(R.id.toolbarTitle)
         toolbarSearch = view.findViewById(R.id.toolbarSearch)
@@ -119,34 +119,26 @@ class HomeFragment : Fragment() {
 
     private fun setupToolbar() {
         toolbarTitle.text = "Today"
-
-        toolbarSearch.setOnClickListener {
-            showSearchDialog()
-        }
-
-        toolbarNotifications.setOnClickListener {
-            showNotifications()
-        }
-
-        toolbarSettings.setOnClickListener {
-            showSettings()
-        }
-
-        toolbarProfile.setOnClickListener {
-            showProfile()
-        }
+        toolbarSearch.setOnClickListener { showSearchDialog() }
+        toolbarNotifications.setOnClickListener { showNotifications() }
+        toolbarSettings.setOnClickListener { showSettings() }
+        toolbarProfile.setOnClickListener { showProfile() }
     }
 
-    private fun loadHabits() {
+    private fun loadHabitsForSelectedDate() {
         habitsList.clear()
 
-        val savedHabits = prefsManager.getUserPreference("user_habits", "")
-        if (savedHabits.isNotEmpty()) {
+        val allHabitsJson = prefsManager.getUserPreference("user_habits", "")
+        if (allHabitsJson.isNotEmpty()) {
             try {
-                val type = object : TypeToken<List<Habit>>() {}.type
-                val loadedHabits = gson.fromJson<List<Habit>>(savedHabits, type)
-                habitsList.addAll(loadedHabits ?: emptyList())
-                Log.d("HomeFragment", "Loaded ${habitsList.size} habits from storage")
+                val type = object : TypeToken<Map<String, List<Habit>>>() {}.type
+                val allHabitsMap = gson.fromJson<Map<String, List<Habit>>>(allHabitsJson, type) ?: emptyMap()
+
+                val selectedDateKey = dateFormatStorage.format(selectedDate)
+                val habitsForDate = allHabitsMap[selectedDateKey] ?: emptyList()
+
+                habitsList.addAll(habitsForDate)
+                Log.d("HomeFragment", "Loaded ${habitsList.size} habits for $selectedDateKey")
             } catch (e: Exception) {
                 Log.e("HomeFragment", "Error loading habits: ${e.message}")
                 habitsList.clear()
@@ -159,35 +151,96 @@ class HomeFragment : Fragment() {
         updateUI()
     }
 
-    private fun saveHabits() {
+    private fun saveHabitsForSelectedDate() {
         try {
-            val habitsJson = gson.toJson(habitsList)
-            prefsManager.setUserPreference("user_habits", habitsJson)
-            Log.d("HomeFragment", "Saved ${habitsList.size} habits to storage")
+            val allHabitsJson = prefsManager.getUserPreference("user_habits", "")
+            val type = object : TypeToken<Map<String, List<Habit>>>() {}.type
+            val allHabitsMap = if (allHabitsJson.isNotEmpty()) {
+                gson.fromJson<MutableMap<String, List<Habit>>>(allHabitsJson, type) ?: mutableMapOf()
+            } else {
+                mutableMapOf()
+            }
+
+            val selectedDateKey = dateFormatStorage.format(selectedDate)
+            if (habitsList.isEmpty()) {
+                allHabitsMap.remove(selectedDateKey)
+            } else {
+                allHabitsMap[selectedDateKey] = habitsList.toList()
+            }
+
+            val updatedHabitsJson = gson.toJson(allHabitsMap)
+            prefsManager.setUserPreference("user_habits", updatedHabitsJson)
+            Log.d("HomeFragment", "Saved ${habitsList.size} habits for $selectedDateKey")
         } catch (e: Exception) {
             Log.e("HomeFragment", "Error saving habits: ${e.message}")
         }
     }
 
     private fun addHabit(habit: Habit) {
-        habitsList.add(habit)
-        saveHabits()
-        updateUI()
+        // Save to the specific date in preferences
+        val allHabitsJson = prefsManager.getUserPreference("user_habits", "")
+        val type = object : TypeToken<Map<String, List<Habit>>>() {}.type
+        val allHabitsMap = if (allHabitsJson.isNotEmpty()) {
+            gson.fromJson<MutableMap<String, List<Habit>>>(allHabitsJson, type) ?: mutableMapOf()
+        } else {
+            mutableMapOf()
+        }
+
+        val dateKey = habit.date
+        val habitsForDate = allHabitsMap[dateKey]?.toMutableList() ?: mutableListOf()
+        habitsForDate.add(habit)
+        allHabitsMap[dateKey] = habitsForDate
+
+        val updatedHabitsJson = gson.toJson(allHabitsMap)
+        prefsManager.setUserPreference("user_habits", updatedHabitsJson)
+
+        // If the habit is added for the currently selected date, update the UI
+        if (dateKey == dateFormatStorage.format(selectedDate)) {
+            habitsList.add(habit)
+            updateUI()
+        }
 
         if (habit.isReminderEnabled) {
             scheduleHabitReminder(habit)
         }
 
-        showToast("Habit '${habit.name}' added!")
+        val habitDate = dateFormatStorage.parse(habit.date) ?: Date()
+        showToast("Habit '${habit.name}' added for ${dateFormatDisplay.format(habitDate)}!")
     }
 
     private fun deleteHabit(habit: Habit) {
         if (habit.isReminderEnabled) {
             cancelHabitReminder(habit.id)
         }
-        habitsList.remove(habit)
-        saveHabits()
-        updateUI()
+
+        // Remove from global storage
+        val allHabitsJson = prefsManager.getUserPreference("user_habits", "")
+        val type = object : TypeToken<Map<String, List<Habit>>>() {}.type
+        val allHabitsMap = if (allHabitsJson.isNotEmpty()) {
+            gson.fromJson<MutableMap<String, List<Habit>>>(allHabitsJson, type) ?: mutableMapOf()
+        } else {
+            mutableMapOf()
+        }
+
+        val dateKey = habit.date
+        val habitsForDate = allHabitsMap[dateKey]?.toMutableList()
+        habitsForDate?.removeAll { it.id == habit.id }
+
+        if (habitsForDate.isNullOrEmpty()) {
+            allHabitsMap.remove(dateKey)
+        } else {
+            allHabitsMap[dateKey] = habitsForDate
+        }
+
+        val updatedHabitsJson = gson.toJson(allHabitsMap)
+        prefsManager.setUserPreference("user_habits", updatedHabitsJson)
+
+        // Remove from current list if it's for selected date
+        if (dateKey == dateFormatStorage.format(selectedDate)) {
+            habitsList.removeAll { it.id == habit.id }
+            updateUI()
+        }
+
         showToast("Habit '${habit.name}' deleted!")
     }
 
@@ -195,7 +248,7 @@ class HomeFragment : Fragment() {
         val index = habitsList.indexOfFirst { it.id == habit.id }
         if (index != -1) {
             habitsList[index] = habit.copy(completed = isCompleted)
-            saveHabits()
+            saveHabitsForSelectedDate()
         }
     }
 
@@ -248,16 +301,13 @@ class HomeFragment : Fragment() {
     }
 
     private fun setupBottomNavigation() {
-        setBottomNavSelected(navToday)
+        setBottomNavSelected(navMain)
 
-        navPremium.setOnClickListener {
-            setBottomNavSelected(navPremium)
-            showToast("Premium clicked")
-        }
-
-        navToday.setOnClickListener {
-            setBottomNavSelected(navToday)
-            loadHabits()
+        navMain.setOnClickListener {
+            setBottomNavSelected(navMain)
+            val intent = Intent(requireContext(), MoodJournalActivity::class.java)
+            startActivity(intent)
+            showToast("Main Activity")
         }
 
         navHabits.setOnClickListener {
@@ -265,24 +315,20 @@ class HomeFragment : Fragment() {
             navigateToHabits()
         }
 
-        navTasks.setOnClickListener {
-            setBottomNavSelected(navTasks)
-            navigateToTasks()
-        }
-
-        navCategories.setOnClickListener {
-            setBottomNavSelected(navCategories)
-            navigateToCategories()
-        }
-
-        navTimer.setOnClickListener {
-            setBottomNavSelected(navTimer)
-            navigateToTimer()
+        navMood.setOnClickListener {
+            setBottomNavSelected(navMood)
+            navigateToMoodJournal()
         }
     }
 
+    private fun navigateToMoodJournal() {
+         val intent = Intent(requireContext(), MoodJournalActivity::class.java)
+         startActivity(intent)
+        showToast("Navigating to Mood Journal")
+    }
+
     private fun setBottomNavSelected(selectedView: TextView) {
-        val navItems = listOf(navPremium, navToday, navHabits, navTasks, navCategories, navTimer)
+        val navItems = listOf(navMain, navHabits, navMood)
         navItems.forEach { item ->
             item.setTextColor(ContextCompat.getColor(requireContext(), R.color.secondary_text))
             item.setBackgroundColor(ContextCompat.getColor(requireContext(), android.R.color.transparent))
@@ -321,6 +367,12 @@ class HomeFragment : Fragment() {
                 tvDay.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white))
             }
 
+            if (isSameDay(calendar.time, selectedDate)) {
+                dayView.setBackgroundResource(R.drawable.calendar_selected_bg)
+                tvDate.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white))
+                tvDay.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white))
+            }
+
             dayView.setOnClickListener {
                 onDaySelected(calendar.time)
             }
@@ -333,6 +385,459 @@ class HomeFragment : Fragment() {
     private fun setupClickListeners() {
         fabAdd.setOnClickListener {
             showAddHabitDialog()
+        }
+
+        btnAddForDate.setOnClickListener {
+            showAddHabitDialog()
+        }
+    }
+
+    private fun onDaySelected(date: Date) {
+        selectedDate = date
+        updateSelectedDateDisplay()
+        setupCalendar()
+        loadHabitsForSelectedDate()
+
+        val dateFormat = SimpleDateFormat("EEEE, MMMM d", Locale.getDefault())
+        showToast("Selected: ${dateFormat.format(date)}")
+    }
+
+    private fun selectToday() {
+        selectedDate = Date()
+        updateSelectedDateDisplay()
+        setupCalendar()
+        loadHabitsForSelectedDate()
+        showToast("Showing today's habits")
+    }
+
+    private fun updateSelectedDateDisplay() {
+        val today = Calendar.getInstance()
+        val selected = Calendar.getInstance().apply { time = selectedDate }
+
+        val displayText = if (isSameDay(today, selected)) {
+            "Today, ${dateFormatDisplay.format(selectedDate)}"
+        } else {
+            dateFormatDisplay.format(selectedDate)
+        }
+
+        tvSelectedDate.text = displayText
+    }
+
+    private fun showAddHabitDialog() {
+        val dialogView = LayoutInflater.from(requireContext())
+            .inflate(R.layout.dialog_add_habit_with_date, null)
+
+        val etHabitName: EditText = dialogView.findViewById(R.id.etHabitName)
+        val spSchedule: Spinner = dialogView.findViewById(R.id.spSchedule)
+        val switchReminder: Switch = dialogView.findViewById(R.id.switchReminder)
+        val etReminderTime: EditText = dialogView.findViewById(R.id.etReminderTime)
+        val reminderTimeLayout: LinearLayout = dialogView.findViewById(R.id.reminderTimeLayout)
+        val btnSelectDate: Button = dialogView.findViewById(R.id.btnSelectDate1)
+        val tvSelectedDateDialog: TextView = dialogView.findViewById(R.id.tvSelectedDate1)
+        val btnCancel: Button = dialogView.findViewById(R.id.btnCancel)
+        val btnAdd: Button = dialogView.findViewById(R.id.btnAdd)
+
+        val schedules = arrayOf("Daily", "Weekdays", "Weekends", "Mon, Wed, Fri", "Tue, Thu", "Custom")
+        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, schedules)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spSchedule.adapter = adapter
+
+        // Initialize with current selected date
+        var habitDate = selectedDate
+        tvSelectedDateDialog.text = dateFormatDisplay.format(habitDate)
+
+        reminderTimeLayout.visibility = if (switchReminder.isChecked) View.VISIBLE else View.GONE
+
+        switchReminder.setOnCheckedChangeListener { _, isChecked ->
+            reminderTimeLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
+        }
+
+        etReminderTime.setOnClickListener {
+            showTimePicker(etReminderTime)
+        }
+
+        // Add date selection functionality
+        btnSelectDate.setOnClickListener {
+            showDatePickerForHabit { selectedDate ->
+                habitDate = selectedDate
+                tvSelectedDateDialog.text = dateFormatDisplay.format(habitDate)
+            }
+        }
+
+        val dialog = AlertDialog.Builder(requireContext())
+            .setView(dialogView)
+            .setTitle("Add Habit")
+            .setCancelable(false)
+            .create()
+
+        btnCancel.setOnClickListener {
+            dialog.dismiss()
+            currentDialog = null
+        }
+
+        btnAdd.setOnClickListener {
+            val habitName = etHabitName.text.toString().trim()
+            val schedule = spSchedule.selectedItem.toString()
+            val isReminderEnabled = switchReminder.isChecked
+            val reminderTime = if (isReminderEnabled) etReminderTime.text.toString() else null
+
+            if (habitName.isEmpty()) {
+                etHabitName.error = "Please enter habit name"
+                return@setOnClickListener
+            }
+
+            if (isReminderEnabled && reminderTime.isNullOrEmpty()) {
+                showToast("Please set reminder time")
+                return@setOnClickListener
+            }
+
+            if (isReminderEnabled && !isValidTime(reminderTime!!)) {
+                showToast("Please enter a valid time (HH:mm)")
+                return@setOnClickListener
+            }
+
+            val newHabit = Habit(
+                id = System.currentTimeMillis(),
+                name = habitName,
+                schedule = schedule,
+                reminderTime = reminderTime,
+                isReminderEnabled = isReminderEnabled,
+                completed = false,
+                date = dateFormatStorage.format(habitDate) // Use the selected date
+            )
+
+            addHabit(newHabit)
+            dialog.dismiss()
+            currentDialog = null
+        }
+
+        dialog.show()
+        currentDialog = dialog
+    }
+
+    private fun showDatePickerForHabit(onDateSelected: (Date) -> Unit) {
+        val dialogView = LayoutInflater.from(requireContext())
+            .inflate(R.layout.dialog_select_date, null)
+
+        val calendarView: CalendarView = dialogView.findViewById(R.id.calendarView)
+        val btnCancel: Button = dialogView.findViewById(R.id.btnCancel)
+        val btnSelect: Button = dialogView.findViewById(R.id.btnSelect)
+
+        var selectedDate = Date()
+
+        calendarView.setOnDateChangeListener { _, year, month, dayOfMonth ->
+            val calendar = Calendar.getInstance()
+            calendar.set(year, month, dayOfMonth)
+            selectedDate = calendar.time
+        }
+
+        val dialog = AlertDialog.Builder(requireContext())
+            .setView(dialogView)
+            .setTitle("Select Date for Habit")
+            .create()
+
+        btnCancel.setOnClickListener { dialog.dismiss() }
+        btnSelect.setOnClickListener {
+            onDateSelected(selectedDate)
+            dialog.dismiss()
+        }
+
+        dialog.show()
+    }
+
+    private fun showHabitOptions(habit: Habit) {
+        val options = if (habit.isReminderEnabled) {
+            arrayOf("Edit", "Delete", "View Statistics", "Disable Reminder", "Move to Another Day")
+        } else {
+            arrayOf("Edit", "Delete", "View Statistics", "Enable Reminder", "Move to Another Day")
+        }
+
+        AlertDialog.Builder(requireContext())
+            .setTitle(habit.name)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> editHabit(habit)
+                    1 -> showDeleteConfirmation(habit)
+                    2 -> showToast("Statistics for ${habit.name}")
+                    3 -> toggleHabitReminder(habit)
+                    4 -> showMoveHabitDialog(habit)
+                }
+            }
+            .show()
+    }
+
+    private fun showMoveHabitDialog(habit: Habit) {
+        val dialogView = LayoutInflater.from(requireContext())
+            .inflate(R.layout.dialog_select_date, null)
+
+        val calendarView: CalendarView = dialogView.findViewById(R.id.calendarView)
+        val btnCancel: Button = dialogView.findViewById(R.id.btnCancel)
+        val btnSelect: Button = dialogView.findViewById(R.id.btnSelect) // Changed from btnMove to btnSelect
+
+        val dialog = AlertDialog.Builder(requireContext())
+            .setView(dialogView)
+            .setTitle("Move '${habit.name}' to Another Day")
+            .create()
+
+        var selectedMoveDate = Date()
+
+        calendarView.setOnDateChangeListener { _, year, month, dayOfMonth ->
+            val calendar = Calendar.getInstance()
+            calendar.set(year, month, dayOfMonth)
+            selectedMoveDate = calendar.time
+        }
+
+        btnCancel.setOnClickListener { dialog.dismiss() }
+        btnSelect.setOnClickListener { // Changed from btnMove to btnSelect
+            moveHabitToDate(habit, selectedMoveDate)
+            dialog.dismiss()
+        }
+
+        dialog.show()
+    }
+
+    private fun moveHabitToDate(habit: Habit, newDate: Date) {
+        deleteHabit(habit)
+
+        val newHabit = habit.copy(
+            date = dateFormatStorage.format(newDate)
+        )
+
+        addHabit(newHabit)
+        showToast("Habit moved to ${dateFormatDisplay.format(newDate)}")
+    }
+
+    private fun showDeleteConfirmation(habit: Habit) {
+        AlertDialog.Builder(requireContext())
+            .setTitle("Delete Habit")
+            .setMessage("Are you sure you want to delete '${habit.name}'?")
+            .setPositiveButton("Delete") { _, _ ->
+                deleteHabit(habit)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun editHabit(habit: Habit) {
+        showToast("Editing ${habit.name}")
+        // Implement edit functionality here
+    }
+
+    private fun toggleHabitReminder(habit: Habit) {
+        if (habit.isReminderEnabled) {
+            cancelHabitReminder(habit.id)
+            val index = habitsList.indexOfFirst { it.id == habit.id }
+            if (index != -1) {
+                habitsList[index] = habit.copy(isReminderEnabled = false, reminderTime = null)
+                saveHabitsForSelectedDate()
+            }
+            showToast("Reminder disabled for ${habit.name}")
+        } else {
+            showReminderTimePicker(habit)
+        }
+        updateUI()
+    }
+
+    private fun showReminderTimePicker(habit: Habit) {
+        val calendar = Calendar.getInstance()
+        val timePicker = TimePickerDialog(
+            requireContext(),
+            { _, hourOfDay, minute ->
+                val timeString = String.format("%02d:%02d", hourOfDay, minute)
+
+                val updatedHabit = habit.copy(
+                    reminderTime = timeString,
+                    isReminderEnabled = true
+                )
+
+                val index = habitsList.indexOfFirst { it.id == habit.id }
+                if (index != -1) {
+                    habitsList[index] = updatedHabit
+                    scheduleHabitReminder(updatedHabit)
+                    saveHabitsForSelectedDate()
+                    updateUI()
+                    showToast("Reminder set for $timeString")
+                }
+            },
+            calendar.get(Calendar.HOUR_OF_DAY),
+            calendar.get(Calendar.MINUTE),
+            false
+        )
+        timePicker.setTitle("Set Reminder Time for ${habit.name}")
+        timePicker.show()
+    }
+
+    private fun scheduleHabitReminder(habit: Habit) {
+        if (!habit.isReminderEnabled || habit.reminderTime.isNullOrEmpty()) {
+            return
+        }
+
+        if (!hasNotificationPermission()) {
+            showToast("Please grant notification permission to set reminders")
+            requestNotificationPermission()
+            return
+        }
+
+        try {
+            val (hour, minute) = parseTime(habit.reminderTime!!)
+            val alarmManager = requireContext().getSystemService(Context.ALARM_SERVICE) as AlarmManager
+
+            val intent = Intent(requireContext(), HabitReminderReceiver::class.java).apply {
+                putExtra("habit_name", habit.name)
+                putExtra("habit_id", habit.id)
+                putExtra("hour", hour)
+                putExtra("minute", minute)
+                putExtra("is_daily", true)
+            }
+
+            val pendingIntent = PendingIntent.getBroadcast(
+                requireContext(),
+                habit.id.toInt(),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val firstTriggerTime = calculateFirstTriggerTime(hour, minute)
+
+            Log.d("HabitReminder", "Scheduling alarm for ${habit.name} at ${Date(firstTriggerTime)}")
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (alarmManager.canScheduleExactAlarms()) {
+                    alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        firstTriggerTime,
+                        pendingIntent
+                    )
+                } else {
+                    alarmManager.setAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        firstTriggerTime,
+                        pendingIntent
+                    )
+                    Log.w("HabitReminder", "Using inexact alarm due to permission restrictions")
+                }
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    firstTriggerTime,
+                    pendingIntent
+                )
+            } else {
+                alarmManager.setExact(
+                    AlarmManager.RTC_WAKEUP,
+                    firstTriggerTime,
+                    pendingIntent
+                )
+            }
+
+            Log.d("HabitReminder", "Alarm scheduled for: ${habit.name} at ${habit.reminderTime} (first trigger: ${Date(firstTriggerTime)})")
+            showToast("⏰ Reminder set for ${habit.reminderTime}")
+
+        } catch (e: SecurityException) {
+            Log.e("HabitReminder", "Security Exception: ${e.message}")
+            showToast("Cannot schedule exact alarms. Please check app permissions.")
+        } catch (e: Exception) {
+            Log.e("HabitReminder", "Failed to schedule alarm: ${e.message}")
+            showToast("Failed to schedule reminder: ${e.message}")
+        }
+    }
+
+    private fun calculateFirstTriggerTime(hour: Int, minute: Int): Long {
+        val calendar = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, hour)
+            set(Calendar.MINUTE, minute)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+
+            if (timeInMillis <= System.currentTimeMillis()) {
+                add(Calendar.DAY_OF_MONTH, 1)
+            }
+        }
+        return calendar.timeInMillis
+    }
+
+    private fun cancelHabitReminder(habitId: Long) {
+        try {
+            val alarmManager = requireContext().getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            val intent = Intent(requireContext(), HabitReminderReceiver::class.java)
+
+            val pendingIntent = PendingIntent.getBroadcast(
+                requireContext(),
+                habitId.toInt(),
+                intent,
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            pendingIntent?.let {
+                alarmManager.cancel(it)
+                it.cancel()
+                Log.d("HabitReminder", "Alarm cancelled for habit ID: $habitId")
+            }
+
+        } catch (e: Exception) {
+            Log.e("HabitReminder", "Error cancelling alarm: ${e.message}")
+        }
+    }
+
+    private fun parseTime(timeString: String): Pair<Int, Int> {
+        val parts = timeString.split(":")
+        return Pair(parts[0].toInt(), parts[1].toInt())
+    }
+
+    private fun showTimePicker(etReminderTime: EditText) {
+        val calendar = Calendar.getInstance()
+        val timePicker = TimePickerDialog(
+            requireContext(),
+            { _, hourOfDay, minute ->
+                val timeString = String.format("%02d:%02d", hourOfDay, minute)
+                etReminderTime.setText(timeString)
+            },
+            calendar.get(Calendar.HOUR_OF_DAY),
+            calendar.get(Calendar.MINUTE),
+            false
+        )
+        timePicker.show()
+    }
+
+    private fun isValidTime(time: String): Boolean {
+        return time.matches(Regex("^([0-1]?[0-9]|2[0-3]):[0-5][0-9]\$"))
+    }
+
+    private fun isSameDay(cal1: Calendar, cal2: Calendar): Boolean {
+        return cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR) &&
+                cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR)
+    }
+
+    private fun isSameDay(date1: Date, date2: Date): Boolean {
+        val cal1 = Calendar.getInstance().apply { time = date1 }
+        val cal2 = Calendar.getInstance().apply { time = date2 }
+        return isSameDay(cal1, cal2)
+    }
+
+    private fun showToast(message: String) {
+        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun hasNotificationPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(
+                requireContext(),
+                android.Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+    }
+
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (!hasNotificationPermission()) {
+                ActivityCompat.requestPermissions(
+                    requireActivity(),
+                    arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
+                    1001
+                )
+            }
         }
     }
 
@@ -428,389 +933,6 @@ class HomeFragment : Fragment() {
             showToast("No habits found for '$query'")
         } else {
             showToast("Found ${filteredHabits.size} habits")
-        }
-    }
-
-    private fun onDaySelected(date: Date) {
-        val dateFormat = SimpleDateFormat("EEEE, MMMM d", Locale.getDefault())
-        showToast("Selected: ${dateFormat.format(date)}")
-    }
-
-    private fun showAddHabitDialog() {
-        val dialogView = LayoutInflater.from(requireContext())
-            .inflate(R.layout.dialog_add_habit, null)
-
-        val etHabitName: EditText = dialogView.findViewById(R.id.etHabitName)
-        val spSchedule: Spinner = dialogView.findViewById(R.id.spSchedule)
-        val switchReminder: Switch = dialogView.findViewById(R.id.switchReminder)
-        val etReminderTime: EditText = dialogView.findViewById(R.id.etReminderTime)
-        val reminderTimeLayout: LinearLayout = dialogView.findViewById(R.id.reminderTimeLayout)
-        val btnCancel: Button = dialogView.findViewById(R.id.btnCancel)
-        val btnAdd: Button = dialogView.findViewById(R.id.btnAdd)
-
-        val schedules = arrayOf("Daily", "Weekdays", "Weekends", "Mon, Wed, Fri", "Tue, Thu", "Custom")
-        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, schedules)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        spSchedule.adapter = adapter
-
-        reminderTimeLayout.visibility = if (switchReminder.isChecked) View.VISIBLE else View.GONE
-
-        switchReminder.setOnCheckedChangeListener { _, isChecked ->
-            reminderTimeLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
-        }
-
-        etReminderTime.setOnClickListener {
-            showTimePicker(etReminderTime)
-        }
-
-        val dialog = AlertDialog.Builder(requireContext())
-            .setView(dialogView)
-            .setTitle("Add New Habit")
-            .setCancelable(false)
-            .create()
-
-        btnCancel.setOnClickListener {
-            dialog.dismiss()
-            currentDialog = null
-        }
-
-        btnAdd.setOnClickListener {
-            val habitName = etHabitName.text.toString().trim()
-            val schedule = spSchedule.selectedItem.toString()
-            val isReminderEnabled = switchReminder.isChecked
-            val reminderTime = if (isReminderEnabled) etReminderTime.text.toString() else null
-
-            if (habitName.isEmpty()) {
-                etHabitName.error = "Please enter habit name"
-                return@setOnClickListener
-            }
-
-            if (isReminderEnabled && reminderTime.isNullOrEmpty()) {
-                showToast("Please set reminder time")
-                return@setOnClickListener
-            }
-
-            if (isReminderEnabled && !isValidTime(reminderTime!!)) {
-                showToast("Please enter a valid time (HH:mm)")
-                return@setOnClickListener
-            }
-
-            val newHabit = Habit(
-                id = System.currentTimeMillis(),
-                name = habitName,
-                schedule = schedule,
-                reminderTime = reminderTime,
-                isReminderEnabled = isReminderEnabled,
-                completed = false
-            )
-
-            addHabit(newHabit)
-            dialog.dismiss()
-            currentDialog = null
-        }
-
-        dialog.show()
-        currentDialog = dialog
-    }
-
-    private fun showHabitOptions(habit: Habit) {
-        val options = if (habit.isReminderEnabled) {
-            arrayOf("Edit", "Delete", "View Statistics", "Disable Reminder")
-        } else {
-            arrayOf("Edit", "Delete", "View Statistics", "Enable Reminder")
-        }
-
-        AlertDialog.Builder(requireContext())
-            .setTitle(habit.name)
-            .setItems(options) { _, which ->
-                when (which) {
-                    0 -> editHabit(habit)
-                    1 -> showDeleteConfirmation(habit)
-                    2 -> showToast("Statistics for ${habit.name}")
-                    3 -> toggleHabitReminder(habit)
-                }
-            }
-            .show()
-    }
-
-    private fun showDeleteConfirmation(habit: Habit) {
-        AlertDialog.Builder(requireContext())
-            .setTitle("Delete Habit")
-            .setMessage("Are you sure you want to delete '${habit.name}'?")
-            .setPositiveButton("Delete") { _, _ ->
-                deleteHabit(habit)
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
-
-    private fun editHabit(habit: Habit) {
-        showToast("Editing ${habit.name}")
-    }
-
-    private fun toggleHabitReminder(habit: Habit) {
-        if (habit.isReminderEnabled) {
-            cancelHabitReminder(habit.id)
-            val index = habitsList.indexOfFirst { it.id == habit.id }
-            if (index != -1) {
-                habitsList[index] = habit.copy(isReminderEnabled = false, reminderTime = null)
-                saveHabits()
-            }
-            showToast("Reminder disabled for ${habit.name}")
-        } else {
-            showReminderTimePicker(habit)
-        }
-        updateUI()
-    }
-
-    private fun showReminderTimePicker(habit: Habit) {
-        val calendar = Calendar.getInstance()
-        val timePicker = TimePickerDialog(
-            requireContext(),
-            { _, hourOfDay, minute ->
-                val timeString = String.format("%02d:%02d", hourOfDay, minute)
-
-                val updatedHabit = habit.copy(
-                    reminderTime = timeString,
-                    isReminderEnabled = true
-                )
-
-                val index = habitsList.indexOfFirst { it.id == habit.id }
-                if (index != -1) {
-                    habitsList[index] = updatedHabit
-                    scheduleHabitReminder(updatedHabit)
-                    saveHabits()
-                    updateUI()
-                    showToast("Reminder set for $timeString")
-                }
-            },
-            calendar.get(Calendar.HOUR_OF_DAY),
-            calendar.get(Calendar.MINUTE),
-            false
-        )
-        timePicker.setTitle("Set Reminder Time for ${habit.name}")
-        timePicker.show()
-    }
-
-    private fun scheduleHabitReminder(habit: Habit) {
-        if (!habit.isReminderEnabled || habit.reminderTime.isNullOrEmpty()) {
-            return
-        }
-
-        if (!hasNotificationPermission()) {
-            showToast("Please grant notification permission to set reminders")
-            requestNotificationPermission()
-            return
-        }
-
-        try {
-            val (hour, minute) = parseTime(habit.reminderTime!!)
-            val alarmManager = requireContext().getSystemService(Context.ALARM_SERVICE) as AlarmManager
-
-            val intent = Intent(requireContext(), HabitReminderReceiver::class.java).apply {
-                putExtra("habit_name", habit.name)
-                putExtra("habit_id", habit.id)
-                putExtra("hour", hour)
-                putExtra("minute", minute)
-                putExtra("is_daily", true)
-            }
-
-            val pendingIntent = PendingIntent.getBroadcast(
-                requireContext(),
-                habit.id.toInt(),
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-
-            val firstTriggerTime = calculateFirstTriggerTime(hour, minute)
-
-            Log.d("HabitReminder", "Scheduling alarm for ${habit.name} at ${Date(firstTriggerTime)}")
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (alarmManager.canScheduleExactAlarms()) {
-                    alarmManager.setExactAndAllowWhileIdle(
-                        AlarmManager.RTC_WAKEUP,
-                        firstTriggerTime,
-                        pendingIntent
-                    )
-                } else {
-                    alarmManager.setAndAllowWhileIdle(
-                        AlarmManager.RTC_WAKEUP,
-                        firstTriggerTime,
-                        pendingIntent
-                    )
-                    Log.w("HabitReminder", "Using inexact alarm due to permission restrictions")
-                }
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    firstTriggerTime,
-                    pendingIntent
-                )
-            } else {
-                alarmManager.setExact(
-                    AlarmManager.RTC_WAKEUP,
-                    firstTriggerTime,
-                    pendingIntent
-                )
-            }
-
-            Log.d("HabitReminder", "Alarm scheduled for: ${habit.name} at ${habit.reminderTime} (first trigger: ${Date(firstTriggerTime)})")
-            showToast("⏰ Reminder set for ${habit.reminderTime}")
-
-        } catch (e: SecurityException) {
-            Log.e("HabitReminder", "Security Exception: ${e.message}")
-            showToast("Cannot schedule exact alarms. Please check app permissions.")
-        } catch (e: Exception) {
-            Log.e("HabitReminder", "Failed to schedule alarm: ${e.message}")
-            showToast("Failed to schedule reminder: ${e.message}")
-        }
-    }
-
-    private fun testSoundImmediately() {
-        try {
-            Log.d("SoundTest", "Testing sound playback...")
-
-            val notificationManager = requireContext().getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                notificationManager.deleteNotificationChannel("sound_test_channel")
-
-                val soundURI = Uri.parse("android.resource://${requireContext().packageName}/${R.raw.alarm}")
-                Log.d("SoundTest", "Sound URI: $soundURI")
-
-                val audioAttributes = AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ALARM)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build()
-
-                val channel = NotificationChannel(
-                    "sound_test_channel",
-                    "Sound Test Channel",
-                    NotificationManager.IMPORTANCE_HIGH
-                ).apply {
-                    description = "Test channel for alarm sound"
-                    enableLights(true)
-                    lightColor = Color.RED
-                    enableVibration(true)
-                    vibrationPattern = longArrayOf(0, 1000, 500, 1000)
-                    setSound(soundURI, audioAttributes)
-                    lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
-                }
-                notificationManager.createNotificationChannel(channel)
-            }
-
-            val notification = NotificationCompat.Builder(requireContext(), "sound_test_channel")
-                .setSmallIcon(android.R.drawable.ic_dialog_info)
-                .setContentTitle("🔊 Sound Test")
-                .setContentText("Testing alarm sound - you should hear it now!")
-                .setPriority(NotificationCompat.PRIORITY_MAX)
-                .setCategory(NotificationCompat.CATEGORY_ALARM)
-                .setAutoCancel(true)
-                .setOnlyAlertOnce(false)
-                .build()
-
-            notificationManager.notify(12345, notification)
-            Log.d("SoundTest", "Test notification shown")
-            showToast("🔊 Testing alarm sound NOW - check volume!")
-
-        } catch (e: Exception) {
-            Log.e("SoundTest", "Error testing sound: ${e.message}")
-            showToast("Sound test failed: ${e.message}")
-        }
-    }
-
-    private fun calculateFirstTriggerTime(hour: Int, minute: Int): Long {
-        val calendar = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, hour)
-            set(Calendar.MINUTE, minute)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-
-            // If the time has already passed today, schedule for tomorrow
-            if (timeInMillis <= System.currentTimeMillis()) {
-                add(Calendar.DAY_OF_MONTH, 1)
-            }
-        }
-        return calendar.timeInMillis
-    }
-
-    private fun cancelHabitReminder(habitId: Long) {
-        try {
-            val alarmManager = requireContext().getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            val intent = Intent(requireContext(), HabitReminderReceiver::class.java)
-
-            val pendingIntent = PendingIntent.getBroadcast(
-                requireContext(),
-                habitId.toInt(),
-                intent,
-                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
-            )
-
-            pendingIntent?.let {
-                alarmManager.cancel(it)
-                it.cancel()
-                Log.d("HabitReminder", "Alarm cancelled for habit ID: $habitId")
-            }
-
-        } catch (e: Exception) {
-            Log.e("HabitReminder", "Error cancelling alarm: ${e.message}")
-        }
-    }
-
-    private fun parseTime(timeString: String): Pair<Int, Int> {
-        val parts = timeString.split(":")
-        return Pair(parts[0].toInt(), parts[1].toInt())
-    }
-
-    private fun showTimePicker(etReminderTime: EditText) {
-        val calendar = Calendar.getInstance()
-        val timePicker = TimePickerDialog(
-            requireContext(),
-            { _, hourOfDay, minute ->
-                val timeString = String.format("%02d:%02d", hourOfDay, minute)
-                etReminderTime.setText(timeString)
-            },
-            calendar.get(Calendar.HOUR_OF_DAY),
-            calendar.get(Calendar.MINUTE),
-            false
-        )
-        timePicker.show()
-    }
-
-    private fun isValidTime(time: String): Boolean {
-        return time.matches(Regex("^([0-1]?[0-9]|2[0-3]):[0-5][0-9]\$"))
-    }
-
-    private fun isSameDay(cal1: Calendar, cal2: Calendar): Boolean {
-        return cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR) &&
-                cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR)
-    }
-
-    private fun showToast(message: String) {
-        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
-    }
-
-    private fun hasNotificationPermission(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            ContextCompat.checkSelfPermission(
-                requireContext(),
-                android.Manifest.permission.POST_NOTIFICATIONS
-            ) == PackageManager.PERMISSION_GRANTED
-        } else {
-            true
-        }
-    }
-
-    private fun requestNotificationPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (!hasNotificationPermission()) {
-                ActivityCompat.requestPermissions(
-                    requireActivity(),
-                    arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
-                    1001
-                )
-            }
         }
     }
 

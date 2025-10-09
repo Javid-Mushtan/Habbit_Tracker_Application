@@ -55,4 +55,18 @@
     <color name="heart_rate_exercise">#FF9800</color>
     <color name="heart_rate_high">#FF5722</color>
     <color name="heart_rate_very_high">#F44336</color>
+    <!-- Mood adapters for -->
+    <color name="mood_happy">#4CAF50</color>
+    <color name="mood_sad">#2196F3</color>
+    <color name="mood_angry">#F44336</color>
+    <color name="mood_tired">#795548</color>
+    <color name="mood_calm">#009688</color>
+    <color name="mood_anxious">#FF9800</color>
+    <color name="mood_excited">#FFC107</color>
+    <color name="mood_disappointed">#607D8B</color>
+    <color name="mood_confident">#9C27B0</color>
+    <color name="mood_sick">#8BC34A</color>
+    <color name="mood_loved">#E91E63</color>
+    <color name="mood_thoughtful">#3F51B5</color>
+    <color name="mood_default">#F5F5F5</color>
 </resources>

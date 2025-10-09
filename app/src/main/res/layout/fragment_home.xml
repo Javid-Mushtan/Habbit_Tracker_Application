@@ -76,7 +76,44 @@
 
     </HorizontalScrollView>
 
-    <!-- Content Area -->
+    <!-- Selected Date Display Section -->
+    <LinearLayout
+        android:id="@+id/selectedDateLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="@color/gray_light"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/tvSelectedDate"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Today, January 1"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@color/primary_text" />
+
+        <Button
+            android:id="@+id/btnAddForDate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Add Habit"
+            android:textSize="14sp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:background="@drawable/button_primary"
+            android:textColor="@android:color/white" />
+
+    </LinearLayout>
+
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -133,24 +170,11 @@
         android:elevation="8dp">
 
         <TextView
-            android:id="@+id/navPremium"
+            android:id="@+id/navMain"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="Premium"
-            android:textColor="@color/secondary_text"
-            android:textSize="12sp"
-            android:gravity="center"
-            android:clickable="true"
-            android:focusable="true"
-            android:background="?android:attr/selectableItemBackground" />
-
-        <TextView
-            android:id="@+id/navToday"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:text="Today"
+            android:text="Main"
             android:textColor="@color/primary_blue"
             android:textSize="12sp"
             android:gravity="center"
@@ -172,37 +196,11 @@
             android:background="?android:attr/selectableItemBackground" />
 
         <TextView
-            android:id="@+id/navTasks"
+            android:id="@+id/navMood"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="Tasks"
-            android:textColor="@color/secondary_text"
-            android:textSize="12sp"
-            android:gravity="center"
-            android:clickable="true"
-            android:focusable="true"
-            android:background="?android:attr/selectableItemBackground" />
-
-        <TextView
-            android:id="@+id/navCategories"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:text="Categories"
-            android:textColor="@color/secondary_text"
-            android:textSize="12sp"
-            android:gravity="center"
-            android:clickable="true"
-            android:focusable="true"
-            android:background="?android:attr/selectableItemBackground" />
-
-        <TextView
-            android:id="@+id/navTimer"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:text="Timer"
+            android:text="Mood"
             android:textColor="@color/secondary_text"
             android:textSize="12sp"
             android:gravity="center"

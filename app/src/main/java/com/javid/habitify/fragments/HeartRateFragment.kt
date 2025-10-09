@@ -140,7 +140,6 @@ class HeartRateFragment : Fragment(), SensorEventListener {
 
     private fun startHeartRateMeasurement() {
         if (heartRateSensor != null) {
-            // Real sensor available
             sensorManager.registerListener(this, heartRateSensor, SensorManager.SENSOR_DELAY_NORMAL)
             viewModel.startMeasurement()
             startPulseAnimation()

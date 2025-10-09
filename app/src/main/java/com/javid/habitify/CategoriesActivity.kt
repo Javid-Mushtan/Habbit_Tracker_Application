@@ -3,6 +3,7 @@ package com.javid.habitify
 import android.app.AlertDialog
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.View
 import android.widget.*
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -22,7 +23,12 @@ class CategoriesActivity : AppCompatActivity() {
     private lateinit var rvCustomCategories: RecyclerView
     private lateinit var rvDefaultCategories: RecyclerView
     private lateinit var tvCustomCount: TextView
+    private lateinit var tvPremiumInfo: TextView
     private lateinit var btnNewCategory: Button
+    private lateinit var btnBack: ImageButton
+    private lateinit var emptyState: LinearLayout
+    private lateinit var customCategoriesCard: LinearLayout
+    private lateinit var defaultCategoriesCard: LinearLayout
 
     private lateinit var customCategoryAdapter: CategoryAdapter
     private lateinit var defaultCategoryAdapter: CategoryAdapter
@@ -45,7 +51,12 @@ class CategoriesActivity : AppCompatActivity() {
         rvCustomCategories = findViewById(R.id.rvCustomCategories)
         rvDefaultCategories = findViewById(R.id.rvDefaultCategories)
         tvCustomCount = findViewById(R.id.tvCustomCount)
+        tvPremiumInfo = findViewById(R.id.tvPremiumInfo)
         btnNewCategory = findViewById(R.id.btnNewCategory)
+        btnBack = findViewById(R.id.btnBack)
+        emptyState = findViewById(R.id.emptyState)
+        customCategoriesCard = findViewById(R.id.customCategoriesCard)
+        defaultCategoriesCard = findViewById(R.id.defaultCategoriesCard)
     }
 
     private fun setupAdapters() {
@@ -102,18 +113,20 @@ class CategoriesActivity : AppCompatActivity() {
         lifecycleScope.launchWhenStarted {
             viewModel.customCategories.collectLatest { categories ->
                 customCategoryAdapter.submitList(categories)
+                updateEmptyState()
             }
         }
 
         lifecycleScope.launchWhenStarted {
             viewModel.defaultCategories.collectLatest { categories ->
                 defaultCategoryAdapter.submitList(categories)
+                updateEmptyState()
             }
         }
 
         lifecycleScope.launchWhenStarted {
             viewModel.customCategoriesCount.collectLatest { count ->
-                tvCustomCount.text = "$count available"
+                tvCustomCount.text = if (count == 1) "$count category" else "$count categories"
             }
         }
 
@@ -132,6 +145,25 @@ class CategoriesActivity : AppCompatActivity() {
         btnNewCategory.setOnClickListener {
             viewModel.showNewCategoryDialog()
         }
+
+        btnBack.setOnClickListener {
+            onBackPressed()
+        }
+    }
+
+    private fun updateEmptyState() {
+        val hasCustomCategories = customCategoryAdapter.itemCount > 0
+        val hasDefaultCategories = defaultCategoryAdapter.itemCount > 0
+
+        if (!hasCustomCategories && !hasDefaultCategories) {
+            emptyState.visibility = View.VISIBLE
+            customCategoriesCard.visibility = View.GONE
+            defaultCategoriesCard.visibility = View.GONE
+        } else {
+            emptyState.visibility = View.GONE
+            customCategoriesCard.visibility = if (hasCustomCategories) View.VISIBLE else View.GONE
+            defaultCategoriesCard.visibility = View.VISIBLE
+        }
     }
 
     private fun onCategoryClicked(category: Category) {
@@ -149,7 +181,10 @@ class CategoriesActivity : AppCompatActivity() {
             .setTitle(category.name)
             .setItems(options) { dialog, which ->
                 when {
-                    which == 0 -> viewModel.incrementEntryCount(category.id)
+                    which == 0 -> {
+                        viewModel.incrementEntryCount(category.id)
+                        Toast.makeText(this, "Entry added to ${category.name}", Toast.LENGTH_SHORT).show()
+                    }
                     which == 1 -> openCategoryEntries(category)
                     which == 2 && category.isCustom -> viewModel.showEditCategoryDialog(category)
                     which == 2 && !category.isCustom && category.isPremium -> showPremiumRequiredDialog()
@@ -164,15 +199,16 @@ class CategoriesActivity : AppCompatActivity() {
     private fun showPremiumRequiredDialog() {
         AlertDialog.Builder(this)
             .setTitle("Premium Required")
-            .setMessage("Editing default categories requires a premium subscription.")
-            .setPositiveButton("Upgrade", null)
-            .setNegativeButton("Cancel", null)
+            .setMessage("Upgrade to premium to edit default categories and unlock all features!")
+            .setPositiveButton("Upgrade") { dialog, which ->
+                Toast.makeText(this, "Navigate to Premium", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Later", null)
             .show()
     }
 
     private fun openCategoryEntries(category: Category) {
-        // Navigate to entries/habits for this category
-        // Implementation depends on your app structure
+        Toast.makeText(this, "Opening ${category.name} entries", Toast.LENGTH_SHORT).show()
     }
 
     private fun showNewCategoryDialog() {
@@ -183,6 +219,7 @@ class CategoriesActivity : AppCompatActivity() {
 
         newCategoryDialog = AlertDialog.Builder(this)
             .setView(dialogView)
+            .setTitle("Create New Category")
             .setCancelable(true)
             .create()
 
@@ -194,6 +231,11 @@ class CategoriesActivity : AppCompatActivity() {
             val categoryName = etCategoryName.text?.toString()?.trim()
             if (categoryName.isNullOrEmpty()) {
                 etCategoryName.error = "Category name is required"
+                return@setOnClickListener
+            }
+
+            if (categoryName.length < 2) {
+                etCategoryName.error = "Category name must be at least 2 characters"
                 return@setOnClickListener
             }
 
@@ -226,6 +268,7 @@ class CategoriesActivity : AppCompatActivity() {
 
         editCategoryDialog = AlertDialog.Builder(this)
             .setView(dialogView)
+            .setTitle("Edit Category")
             .setCancelable(true)
             .create()
 
@@ -235,12 +278,17 @@ class CategoriesActivity : AppCompatActivity() {
 
         btnSave.setOnClickListener {
             val categoryName = etCategoryName.text?.toString()?.trim()
-            if (categoryName.isNullOrEmpty()) {
-                etCategoryName.error = "Category name is required"
-                return@setOnClickListener
+            when {
+                categoryName.isNullOrEmpty() -> {
+                    etCategoryName.error = "Category name is required"
+                }
+                categoryName.length < 2 -> {
+                    etCategoryName.error = "Category name must be at least 2 characters"
+                }
+                else -> {
+                    viewModel.updateCategory(category.id, categoryName)
+                }
             }
-
-            viewModel.updateCategory(category.id, categoryName)
         }
 
         btnDelete.setOnClickListener {
@@ -268,6 +316,7 @@ class CategoriesActivity : AppCompatActivity() {
             .setMessage("Are you sure you want to delete '${category.name}'? All entries in this category will also be deleted. This action cannot be undone.")
             .setPositiveButton("Delete") { dialog, which ->
                 viewModel.deleteCategory(category.id)
+                Toast.makeText(this, "'${category.name}' deleted", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("Cancel", null)
             .show()
@@ -276,6 +325,10 @@ class CategoriesActivity : AppCompatActivity() {
     private fun dismissDialogs() {
         newCategoryDialog?.dismiss()
         editCategoryDialog?.dismiss()
+    }
+
+    override fun onBackPressed() {
+        super.onBackPressed()
     }
 
     override fun onDestroy() {

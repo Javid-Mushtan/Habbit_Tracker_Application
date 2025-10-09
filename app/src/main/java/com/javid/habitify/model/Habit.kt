@@ -6,5 +6,6 @@ data class Habit(
     var completed: Boolean = false,
     val id: Long = System.currentTimeMillis(),
     val reminderTime: String? = null,
-    val isReminderEnabled: Boolean = false
+    val isReminderEnabled: Boolean = false,
+    val date: String = ""
 )

@@ -42,7 +42,7 @@ class LoginFragment : Fragment() {
         etEmail = view.findViewById(R.id.etEmail)
         etPassword = view.findViewById(R.id.etPassword)
         btnLogin = view.findViewById(R.id.btnLogin)
-        tvSignup = view.findViewById(R.id.tvSignup) // CORRECTED: Use tvSignup, not tvDividerText
+        tvSignup = view.findViewById(R.id.tvSignup)
     }
 
     private fun setupClickListeners() {
