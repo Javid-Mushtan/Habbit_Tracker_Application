@@ -1,9 +1,13 @@
 package com.javid.habitify.fragments
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -12,7 +16,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.animation.AnimationUtils
 import android.widget.*
-import androidx.cardview.widget.CardView
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
@@ -27,7 +32,7 @@ class FootstepFragment : Fragment(), SensorEventListener {
     private val viewModel: FootstepViewModel by viewModels()
 
     private lateinit var sensorManager: SensorManager
-    public var stepSensor: Sensor? = null
+    private var stepSensor: Sensor? = null
 
     private lateinit var tvStepCount: TextView
     private lateinit var tvStatus: TextView
@@ -49,6 +54,17 @@ class FootstepFragment : Fragment(), SensorEventListener {
     private var lastAcceleration = 0f
     private var stepThreshold = 12f
     private var lastStepTime = 0L
+    private var initialStepCount = 0
+    private var isStepCounterSensor = false
+    private var hasStepCounterPermission = false
+
+    companion object {
+        private const val ACTIVITY_RECOGNITION_PERMISSION_REQUEST = 1001
+
+        fun newInstance(): FootstepFragment {
+            return FootstepFragment()
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -58,6 +74,7 @@ class FootstepFragment : Fragment(), SensorEventListener {
         val view = inflater.inflate(R.layout.fragment_footsteps, container, false)
 
         initializeViews(view)
+        checkPermissions()
         setupSensor()
         setupClickListeners()
         setupObservers()
@@ -84,15 +101,40 @@ class FootstepFragment : Fragment(), SensorEventListener {
         ivFootIcon.startAnimation(bounceAnimation)
     }
 
-    private fun setupSensor() {
-        sensorManager = requireContext().getSystemService(android.content.Context.SENSOR_SERVICE) as SensorManager
-        stepSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
+    private fun checkPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            hasStepCounterPermission = ContextCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.ACTIVITY_RECOGNITION
+            ) == PackageManager.PERMISSION_GRANTED
 
-        if (stepSensor == null) {
-            stepSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-            tvStatus.text = "Using accelerometer for step detection"
+            if (!hasStepCounterPermission) {
+                requestPermissions(
+                    arrayOf(Manifest.permission.ACTIVITY_RECOGNITION),
+                    ACTIVITY_RECOGNITION_PERMISSION_REQUEST
+                )
+            }
         } else {
+            hasStepCounterPermission = true
+        }
+    }
+
+    private fun setupSensor() {
+        sensorManager = requireContext().getSystemService(Context.SENSOR_SERVICE) as SensorManager
+
+        stepSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
+        if (stepSensor != null) {
+            isStepCounterSensor = true
             tvStatus.text = "Step counter sensor available"
+        } else {
+            stepSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+            if (stepSensor != null) {
+                isStepCounterSensor = false
+                tvStatus.text = "Using accelerometer for step detection"
+            } else {
+                tvStatus.text = "No step sensor available"
+                btnStart.isEnabled = false
+            }
         }
     }
 
@@ -102,11 +144,17 @@ class FootstepFragment : Fragment(), SensorEventListener {
         }
 
         btnStart.setOnClickListener {
+            if (!hasStepCounterPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                showToast("Please grant activity recognition permission first")
+                checkPermissions()
+                return@setOnClickListener
+            }
             toggleStepCounting()
         }
 
         btnReset.setOnClickListener {
             viewModel.resetData()
+            initialStepCount = 0
         }
     }
 
@@ -187,9 +235,17 @@ class FootstepFragment : Fragment(), SensorEventListener {
         event?.let {
             when (it.sensor.type) {
                 Sensor.TYPE_STEP_COUNTER -> {
-                    val newSteps = it.values[0].toInt()
-                    viewModel.updateStepCount(newSteps, fromSensor = true)
-                    animateStepIncrease()
+                    val currentSteps = it.values[0].toInt()
+
+                    if (initialStepCount == 0) {
+                        initialStepCount = currentSteps
+                    }
+
+                    val stepsSinceStart = currentSteps - initialStepCount
+                    if (stepsSinceStart >= 0) {
+                        viewModel.updateStepCount(stepsSinceStart, fromSensor = true)
+                        animateStepIncrease()
+                    }
                 }
                 Sensor.TYPE_ACCELEROMETER -> {
                     detectStepsFromAccelerometer(it.values[0], it.values[1], it.values[2])
@@ -236,7 +292,23 @@ class FootstepFragment : Fragment(), SensorEventListener {
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-        // if you want mj mushtan
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        when (requestCode) {
+            ACTIVITY_RECOGNITION_PERMISSION_REQUEST -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    hasStepCounterPermission = true
+                    showToast("Permission granted! You can now start step counting.")
+                } else {
+                    showToast("Permission denied. Step counting may not work properly.")
+                }
+            }
+        }
     }
 
     override fun onPause() {
@@ -255,15 +327,10 @@ class FootstepFragment : Fragment(), SensorEventListener {
         super.onDestroy()
         sensorManager.unregisterListener(this)
         stopStepAnimation()
+        handler.removeCallbacksAndMessages(null)
     }
 
     private fun showToast(message: String) {
         Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
-    }
-
-    companion object {
-        fun newInstance(): FootstepFragment {
-            return FootstepFragment()
-        }
     }
 }

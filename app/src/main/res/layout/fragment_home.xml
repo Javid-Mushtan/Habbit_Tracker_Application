@@ -5,6 +5,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:orientation="vertical"
     android:background="@android:color/white"
+    android:paddingBottom="48dp"
     tools:context=".fragments.HomeFragment">
 
     <LinearLayout
@@ -161,54 +162,67 @@
 
     </ScrollView>
 
-    <LinearLayout
-        android:id="@+id/bottomNavigationView"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:orientation="horizontal"
-        android:background="@android:color/white"
-        android:elevation="8dp">
+<!--    <LinearLayout-->
+<!--        android:id="@+id/bottomNavigationView"-->
+<!--        android:layout_width="match_parent"-->
+<!--        android:layout_height="56dp"-->
+<!--        android:orientation="horizontal"-->
+<!--        android:background="@android:color/white"-->
+<!--        android:elevation="8dp">-->
 
-        <TextView
-            android:id="@+id/navMain"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:text="Main"
-            android:textColor="@color/primary_blue"
-            android:textSize="12sp"
-            android:gravity="center"
-            android:clickable="true"
-            android:focusable="true"
-            android:background="?android:attr/selectableItemBackground" />
+<!--        <TextView-->
+<!--            android:id="@+id/navMain"-->
+<!--            android:layout_width="0dp"-->
+<!--            android:layout_height="match_parent"-->
+<!--            android:layout_weight="1"-->
+<!--            android:text="Main"-->
+<!--            android:textColor="@color/primary_blue"-->
+<!--            android:textSize="12sp"-->
+<!--            android:gravity="center"-->
+<!--            android:clickable="true"-->
+<!--            android:focusable="true"-->
+<!--            android:background="?android:attr/selectableItemBackground" />-->
 
-        <TextView
-            android:id="@+id/navHabits"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:text="Habits"
-            android:textColor="@color/secondary_text"
-            android:textSize="12sp"
-            android:gravity="center"
-            android:clickable="true"
-            android:focusable="true"
-            android:background="?android:attr/selectableItemBackground" />
+<!--        <TextView-->
+<!--            android:id="@+id/navHabits"-->
+<!--            android:layout_width="0dp"-->
+<!--            android:layout_height="match_parent"-->
+<!--            android:layout_weight="1"-->
+<!--            android:text="Habits"-->
+<!--            android:textColor="@color/secondary_text"-->
+<!--            android:textSize="12sp"-->
+<!--            android:gravity="center"-->
+<!--            android:clickable="true"-->
+<!--            android:focusable="true"-->
+<!--            android:background="?android:attr/selectableItemBackground" />-->
 
-        <TextView
-            android:id="@+id/navMood"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:text="Mood"
-            android:textColor="@color/secondary_text"
-            android:textSize="12sp"
-            android:gravity="center"
-            android:clickable="true"
-            android:focusable="true"
-            android:background="?android:attr/selectableItemBackground" />
+<!--        <TextView-->
+<!--            android:id="@+id/navCategories"-->
+<!--            android:layout_width="0dp"-->
+<!--            android:layout_height="match_parent"-->
+<!--            android:layout_weight="1"-->
+<!--            android:text="Categories"-->
+<!--            android:textColor="@color/secondary_text"-->
+<!--            android:textSize="12sp"-->
+<!--            android:gravity="center"-->
+<!--            android:clickable="true"-->
+<!--            android:focusable="true"-->
+<!--            android:background="?android:attr/selectableItemBackground" />-->
 
-    </LinearLayout>
+<!--        <TextView-->
+<!--            android:id="@+id/navMood"-->
+<!--            android:layout_width="0dp"-->
+<!--            android:layout_height="match_parent"-->
+<!--            android:layout_weight="1"-->
+<!--            android:text="Mood"-->
+<!--            android:textColor="@color/secondary_text"-->
+<!--            android:textSize="12sp"-->
+<!--            android:gravity="center"-->
+<!--            android:clickable="true"-->
+<!--            android:focusable="true"-->
+<!--            android:background="?android:attr/selectableItemBackground" />-->
+
+<!--    </LinearLayout>-->
 
     <ImageButton
         android:id="@+id/fabAdd"

@@ -111,7 +111,6 @@ class ProfileActivity : AppCompatActivity() {
     }
 
     private fun openEditProfile() {
-        // Implement edit profile functionality
         Toast.makeText(this, "Edit Profile", Toast.LENGTH_SHORT).show()
     }
 

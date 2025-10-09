@@ -45,6 +45,7 @@ class HomeFragment : Fragment() {
     private lateinit var navMain: TextView
     private lateinit var navHabits: TextView
     private lateinit var navMood: TextView
+    private lateinit var navCategories: TextView
 
     private lateinit var toolbarTitle: TextView
     private lateinit var toolbarSearch: ImageButton
@@ -81,7 +82,7 @@ class HomeFragment : Fragment() {
         setupToolbar()
         setupCalendar()
         setupClickListeners()
-        setupBottomNavigation()
+//        setupBottomNavigation()
         updateSelectedDateDisplay()
         loadHabitsForSelectedDate()
         updateUI()
@@ -109,6 +110,7 @@ class HomeFragment : Fragment() {
         navMain = view.findViewById(R.id.navMain)
         navHabits = view.findViewById(R.id.navHabits)
         navMood = view.findViewById(R.id.navMood)
+        navCategories = view.findViewById(R.id.navCategories)
 
         toolbarTitle = view.findViewById(R.id.toolbarTitle)
         toolbarSearch = view.findViewById(R.id.toolbarSearch)
@@ -177,7 +179,6 @@ class HomeFragment : Fragment() {
     }
 
     private fun addHabit(habit: Habit) {
-        // Save to the specific date in preferences
         val allHabitsJson = prefsManager.getUserPreference("user_habits", "")
         val type = object : TypeToken<Map<String, List<Habit>>>() {}.type
         val allHabitsMap = if (allHabitsJson.isNotEmpty()) {
@@ -194,7 +195,6 @@ class HomeFragment : Fragment() {
         val updatedHabitsJson = gson.toJson(allHabitsMap)
         prefsManager.setUserPreference("user_habits", updatedHabitsJson)
 
-        // If the habit is added for the currently selected date, update the UI
         if (dateKey == dateFormatStorage.format(selectedDate)) {
             habitsList.add(habit)
             updateUI()
@@ -213,7 +213,6 @@ class HomeFragment : Fragment() {
             cancelHabitReminder(habit.id)
         }
 
-        // Remove from global storage
         val allHabitsJson = prefsManager.getUserPreference("user_habits", "")
         val type = object : TypeToken<Map<String, List<Habit>>>() {}.type
         val allHabitsMap = if (allHabitsJson.isNotEmpty()) {
@@ -235,7 +234,6 @@ class HomeFragment : Fragment() {
         val updatedHabitsJson = gson.toJson(allHabitsMap)
         prefsManager.setUserPreference("user_habits", updatedHabitsJson)
 
-        // Remove from current list if it's for selected date
         if (dateKey == dateFormatStorage.format(selectedDate)) {
             habitsList.removeAll { it.id == habit.id }
             updateUI()
@@ -300,26 +298,33 @@ class HomeFragment : Fragment() {
         }
     }
 
-    private fun setupBottomNavigation() {
-        setBottomNavSelected(navMain)
-
-        navMain.setOnClickListener {
-            setBottomNavSelected(navMain)
-            val intent = Intent(requireContext(), MoodJournalActivity::class.java)
-            startActivity(intent)
-            showToast("Main Activity")
-        }
-
-        navHabits.setOnClickListener {
-            setBottomNavSelected(navHabits)
-            navigateToHabits()
-        }
-
-        navMood.setOnClickListener {
-            setBottomNavSelected(navMood)
-            navigateToMoodJournal()
-        }
-    }
+//    private fun setupBottomNavigation() {
+//        setBottomNavSelected(navMain)
+//
+//        navCategories.setOnClickListener {
+//            setBottomNavSelected(navCategories)
+//            val intent = Intent(requireContext(), CategoriesActivity::class.java)
+//            startActivity(intent)
+//            showToast("Categories")
+//        }
+//
+//        navMain.setOnClickListener {
+//            setBottomNavSelected(navMain)
+//            val intent = Intent(requireContext(), MoodJournalActivity::class.java)
+//            startActivity(intent)
+//            showToast("Main Activity")
+//        }
+//
+//        navHabits.setOnClickListener {
+//            setBottomNavSelected(navHabits)
+//            navigateToHabits()
+//        }
+//
+//        navMood.setOnClickListener {
+//            setBottomNavSelected(navMood)
+//            navigateToMoodJournal()
+//        }
+//    }
 
     private fun navigateToMoodJournal() {
          val intent = Intent(requireContext(), MoodJournalActivity::class.java)
@@ -327,16 +332,16 @@ class HomeFragment : Fragment() {
         showToast("Navigating to Mood Journal")
     }
 
-    private fun setBottomNavSelected(selectedView: TextView) {
-        val navItems = listOf(navMain, navHabits, navMood)
-        navItems.forEach { item ->
-            item.setTextColor(ContextCompat.getColor(requireContext(), R.color.secondary_text))
-            item.setBackgroundColor(ContextCompat.getColor(requireContext(), android.R.color.transparent))
-        }
-
-        selectedView.setTextColor(ContextCompat.getColor(requireContext(), R.color.primary_blue))
-        selectedView.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.nav_selected_bg))
-    }
+//    private fun setBottomNavSelected(selectedView: TextView) {
+//        val navItems = listOf(navMain, navHabits, navMood)
+//        navItems.forEach { item ->
+//            item.setTextColor(ContextCompat.getColor(requireContext(), R.color.secondary_text))
+//            item.setBackgroundColor(ContextCompat.getColor(requireContext(), android.R.color.transparent))
+//        }
+//
+//        selectedView.setTextColor(ContextCompat.getColor(requireContext(), R.color.primary_blue))
+//        selectedView.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.nav_selected_bg))
+//    }
 
     private fun setupCalendar() {
         calendarContainer.removeAllViews()
@@ -442,7 +447,6 @@ class HomeFragment : Fragment() {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spSchedule.adapter = adapter
 
-        // Initialize with current selected date
         var habitDate = selectedDate
         tvSelectedDateDialog.text = dateFormatDisplay.format(habitDate)
 
@@ -456,7 +460,6 @@ class HomeFragment : Fragment() {
             showTimePicker(etReminderTime)
         }
 
-        // Add date selection functionality
         btnSelectDate.setOnClickListener {
             showDatePickerForHabit { selectedDate ->
                 habitDate = selectedDate

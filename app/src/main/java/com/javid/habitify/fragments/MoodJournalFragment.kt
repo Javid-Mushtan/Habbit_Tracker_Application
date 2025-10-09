@@ -1,34 +1,30 @@
-package com.javid.habitify
+package com.javid.habitify.fragments
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
 import android.widget.*
-import androidx.appcompat.app.AppCompatActivity
+import androidx.fragment.app.Fragment
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import com.javid.habitify.R
+import com.javid.habitify.SpecialHabitsActivity
 import com.javid.habitify.adapters.MoodHistoryAdapter
 import com.javid.habitify.adapters.MoodOptionsAdapter
 import com.javid.habitify.model.MoodEntry
 import com.javid.habitify.model.MoodOption
 import com.javid.habitify.utils.PrefsManager
-import java.text.SimpleDateFormat
-import java.util.*
 
-class MoodJournalActivity : AppCompatActivity(), MoodOptionsAdapter.OnMoodClickListener {
+class MoodJournalFragment : Fragment(), MoodOptionsAdapter.OnMoodClickListener {
 
     private lateinit var prefsManager: PrefsManager
     private val gson = Gson()
     private val moodEntries = mutableListOf<MoodEntry>()
     private var selectedMood: MoodOption? = null
-
-    private lateinit var navMain: TextView
-    private lateinit var navHabits: TextView
-    private lateinit var navCategories: TextView
-    private lateinit var navMood: TextView
 
     private val moodOptions = listOf(
         MoodOption("😊", "Happy", "Feeling great and positive", R.color.mood_happy),
@@ -48,38 +44,39 @@ class MoodJournalActivity : AppCompatActivity(), MoodOptionsAdapter.OnMoodClickL
     private lateinit var moodOptionsAdapter: MoodOptionsAdapter
     private lateinit var moodHistoryAdapter: MoodHistoryAdapter
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_mood_journal)
+    override fun onCreateView(
+        inflater: android.view.LayoutInflater,
+        container: android.view.ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        return inflater.inflate(R.layout.activity_mood_journal, container, false)
+    }
 
-        prefsManager = PrefsManager(this)
-        setupViews()
-        setupBottomNavigation()
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        prefsManager = PrefsManager(requireContext())
+        setupViews(view)
         loadMoodEntries()
     }
 
-    private fun setupViews() {
-        val moodRecyclerView: RecyclerView = findViewById(R.id.moodRecyclerView)
-        val etMoodNote: EditText = findViewById(R.id.etMoodNote)
-        val btnSaveMood: Button = findViewById(R.id.btnSaveMood)
-        val btnCancel: Button = findViewById(R.id.btnCancel)
-        val moodHistoryRecyclerView: RecyclerView = findViewById(R.id.moodHistoryRecyclerView)
-        val tvSelectedMood: TextView = findViewById(R.id.tvSelectedMood)
-
-        navMain = findViewById(R.id.navMain)
-        navHabits = findViewById(R.id.navHabits)
-        navCategories = findViewById(R.id.navCategories)
-        navMood = findViewById(R.id.navMood)
+    private fun setupViews(view: View) {
+        val moodRecyclerView: RecyclerView = view.findViewById(R.id.moodRecyclerView)
+        val etMoodNote: EditText = view.findViewById(R.id.etMoodNote)
+        val btnSaveMood: Button = view.findViewById(R.id.btnSaveMood)
+        val btnCancel: Button = view.findViewById(R.id.btnCancel)
+        val moodHistoryRecyclerView: RecyclerView = view.findViewById(R.id.moodHistoryRecyclerView)
+        val tvSelectedMood: TextView = view.findViewById(R.id.tvSelectedMood)
 
         moodOptionsAdapter = MoodOptionsAdapter(moodOptions, this)
         moodRecyclerView.apply {
-            layoutManager = GridLayoutManager(this@MoodJournalActivity, 3)
+            layoutManager = GridLayoutManager(requireContext(), 3)
             adapter = moodOptionsAdapter
         }
 
         moodHistoryAdapter = MoodHistoryAdapter(moodEntries)
         moodHistoryRecyclerView.apply {
-            layoutManager = LinearLayoutManager(this@MoodJournalActivity)
+            layoutManager = LinearLayoutManager(requireContext())
             adapter = moodHistoryAdapter
         }
 
@@ -95,69 +92,24 @@ class MoodJournalActivity : AppCompatActivity(), MoodOptionsAdapter.OnMoodClickL
 
                 saveMoodEntry(moodEntry)
                 showToast("Mood saved: ${selectedMood!!.emoji} ${selectedMood!!.name}")
-                finish()
+                // Navigate back or refresh UI as needed
+                activity?.onBackPressed()
             } else {
                 showToast("Please select a mood first")
             }
         }
 
         btnCancel.setOnClickListener {
-            finish()
+            activity?.onBackPressed()
         }
-    }
-
-    private fun setupBottomNavigation() {
-        setBottomNavSelected(navMood)
-
-        navMain.setOnClickListener {
-            setBottomNavSelected(navMain)
-            finish()
-        }
-
-        navHabits.setOnClickListener {
-            setBottomNavSelected(navHabits)
-            navigateToHabits()
-        }
-
-        navCategories.setOnClickListener {
-            setBottomNavSelected(navCategories)
-            navigateToCategories()
-        }
-
-        navMood.setOnClickListener {
-            setBottomNavSelected(navMood)
-        }
-    }
-
-    private fun setBottomNavSelected(selectedView: TextView) {
-        val navItems = listOf(navMain, navHabits, navCategories, navMood)
-        navItems.forEach { item ->
-            item.setTextColor(ContextCompat.getColor(this, R.color.secondary_text))
-            item.setBackgroundColor(ContextCompat.getColor(this, android.R.color.transparent))
-        }
-
-        selectedView.setTextColor(ContextCompat.getColor(this, R.color.primary_blue))
-        selectedView.setBackgroundColor(ContextCompat.getColor(this, R.color.nav_selected_bg))
-    }
-
-    private fun navigateToHabits() {
-        val intent = Intent(this, SpecialHabitsActivity::class.java)
-        startActivity(intent)
-        finish()
-    }
-
-    private fun navigateToCategories() {
-        val intent = Intent(this, CategoriesActivity::class.java)
-        startActivity(intent)
-        finish()
     }
 
     override fun onMoodClick(moodOption: MoodOption) {
         selectedMood = moodOption
-        val tvSelectedMood: TextView = findViewById(R.id.tvSelectedMood)
+        val tvSelectedMood: TextView = requireView().findViewById(R.id.tvSelectedMood)
         tvSelectedMood.text = "Selected: ${moodOption.emoji} ${moodOption.name}"
 
-        val etMoodNote: EditText = findViewById(R.id.etMoodNote)
+        val etMoodNote: EditText = requireView().findViewById(R.id.etMoodNote)
         etMoodNote.hint = "How are you feeling? (${moodOption.description})"
     }
 
@@ -193,6 +145,12 @@ class MoodJournalActivity : AppCompatActivity(), MoodOptionsAdapter.OnMoodClickL
     }
 
     private fun showToast(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+    }
+
+    companion object {
+        fun newInstance(): MoodJournalFragment {
+            return MoodJournalFragment()
+        }
     }
 }

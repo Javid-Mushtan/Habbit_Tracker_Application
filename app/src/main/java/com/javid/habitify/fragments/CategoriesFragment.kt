@@ -1,24 +1,26 @@
-package com.javid.habitify
+package com.javid.habitify.fragments
 
 import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.widget.*
-import androidx.activity.viewModels
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.javid.habitify.R
+import com.javid.habitify.SpecialHabitsActivity
 import com.javid.habitify.adapters.CategoryAdapter
 import com.javid.habitify.model.Category
 import com.javid.habitify.viewmodel.CategoriesViewModel
 import kotlinx.coroutines.flow.collectLatest
 
-class CategoriesActivity : AppCompatActivity() {
+class CategoriesFragment : Fragment() {
 
     private val viewModel: CategoriesViewModel by viewModels()
 
@@ -38,38 +40,36 @@ class CategoriesActivity : AppCompatActivity() {
     private var newCategoryDialog: AlertDialog? = null
     private var editCategoryDialog: AlertDialog? = null
 
-    private lateinit var navMain: TextView
-    private lateinit var navHabits: TextView
-    private lateinit var navCategories: TextView
-    private lateinit var navMood: TextView
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_categories)
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        return inflater.inflate(R.layout.activity_categories, container, false)
+    }
 
-        initializeViews()
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        initializeViews(view)
         setupAdapters()
         setupRecyclerViews()
         setupObservers()
         setupClickListeners()
-        setupBottomNavigation()
     }
 
-    private fun initializeViews() {
-        navMain = findViewById(R.id.navMain)
-        navHabits = findViewById(R.id.navHabits)
-        navCategories = findViewById(R.id.navCategories)
-        navMood = findViewById(R.id.navMood)
+    private fun initializeViews(view: View) {
 
-        rvCustomCategories = findViewById(R.id.rvCustomCategories)
-        rvDefaultCategories = findViewById(R.id.rvDefaultCategories)
-        tvCustomCount = findViewById(R.id.tvCustomCount)
-        tvPremiumInfo = findViewById(R.id.tvPremiumInfo)
-        btnNewCategory = findViewById(R.id.btnNewCategory)
-        btnBack = findViewById(R.id.btnBack)
-        emptyState = findViewById(R.id.emptyState)
-        customCategoriesCard = findViewById(R.id.customCategoriesCard)
-        defaultCategoriesCard = findViewById(R.id.defaultCategoriesCard)
+        rvCustomCategories = view.findViewById(R.id.rvCustomCategories)
+        rvDefaultCategories = view.findViewById(R.id.rvDefaultCategories)
+        tvCustomCount = view.findViewById(R.id.tvCustomCount)
+        tvPremiumInfo = view.findViewById(R.id.tvPremiumInfo)
+        btnNewCategory = view.findViewById(R.id.btnNewCategory)
+        btnBack = view.findViewById(R.id.btnBack)
+        emptyState = view.findViewById(R.id.emptyState)
+        customCategoriesCard = view.findViewById(R.id.customCategoriesCard)
+        defaultCategoriesCard = view.findViewById(R.id.defaultCategoriesCard)
     }
 
     private fun setupAdapters() {
@@ -98,71 +98,25 @@ class CategoriesActivity : AppCompatActivity() {
         )
     }
 
-    private fun setupBottomNavigation() {
-        setBottomNavSelected(navCategories)
-
-        navMain.setOnClickListener {
-            setBottomNavSelected(navMain)
-            finish()
-        }
-
-        navHabits.setOnClickListener {
-            setBottomNavSelected(navHabits)
-            navigateToHabits()
-        }
-
-        navCategories.setOnClickListener {
-            setBottomNavSelected(navCategories)
-        }
-
-        navMood.setOnClickListener {
-            setBottomNavSelected(navMood)
-            navigateToMoodJournal()
-        }
-    }
-
-    private fun setBottomNavSelected(selectedView: TextView) {
-        val navItems = listOf(navMain, navHabits, navCategories, navMood)
-        navItems.forEach { item ->
-            item.setTextColor(ContextCompat.getColor(this, R.color.secondary_text))
-            item.setBackgroundColor(ContextCompat.getColor(this, android.R.color.transparent))
-        }
-
-        selectedView.setTextColor(ContextCompat.getColor(this, R.color.primary_blue))
-        selectedView.setBackgroundColor(ContextCompat.getColor(this, R.color.nav_selected_bg))
-    }
-
-    private fun navigateToHabits() {
-        val intent = Intent(this, SpecialHabitsActivity::class.java)
-        startActivity(intent)
-        finish()
-    }
-
-    private fun navigateToMoodJournal() {
-         val intent = Intent(this, MoodJournalActivity::class.java)
-         startActivity(intent)
-         finish()
-        Toast.makeText(this, "Navigating to Mood Journal", android.widget.Toast.LENGTH_SHORT).show()
-    }
 
     private fun setupRecyclerViews() {
         rvCustomCategories.apply {
-            layoutManager = LinearLayoutManager(this@CategoriesActivity)
+            layoutManager = LinearLayoutManager(requireContext())
             adapter = customCategoryAdapter
             addItemDecoration(
                 DividerItemDecoration(
-                    this@CategoriesActivity,
+                    requireContext(),
                     LinearLayoutManager.VERTICAL
                 )
             )
         }
 
         rvDefaultCategories.apply {
-            layoutManager = LinearLayoutManager(this@CategoriesActivity)
+            layoutManager = LinearLayoutManager(requireContext())
             adapter = defaultCategoryAdapter
             addItemDecoration(
                 DividerItemDecoration(
-                    this@CategoriesActivity,
+                    requireContext(),
                     LinearLayoutManager.VERTICAL
                 )
             )
@@ -207,7 +161,7 @@ class CategoriesActivity : AppCompatActivity() {
         }
 
         btnBack.setOnClickListener {
-            onBackPressed()
+            activity?.onBackPressed()
         }
     }
 
@@ -237,13 +191,13 @@ class CategoriesActivity : AppCompatActivity() {
             arrayOf("Add Entry", "View Entries", if (category.isPremium) "Upgrade to Edit" else "Edit Category")
         }
 
-        AlertDialog.Builder(this)
+        AlertDialog.Builder(requireContext())
             .setTitle(category.name)
             .setItems(options) { dialog, which ->
                 when {
                     which == 0 -> {
                         viewModel.incrementEntryCount(category.id)
-                        Toast.makeText(this, "Entry added to ${category.name}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(requireContext(), "Entry added to ${category.name}", Toast.LENGTH_SHORT).show()
                     }
                     which == 1 -> openCategoryEntries(category)
                     which == 2 && category.isCustom -> viewModel.showEditCategoryDialog(category)
@@ -257,27 +211,27 @@ class CategoriesActivity : AppCompatActivity() {
     }
 
     private fun showPremiumRequiredDialog() {
-        AlertDialog.Builder(this)
+        AlertDialog.Builder(requireContext())
             .setTitle("Premium Required")
             .setMessage("Upgrade to premium to edit default categories and unlock all features!")
             .setPositiveButton("Upgrade") { dialog, which ->
-                Toast.makeText(this, "Navigate to Premium", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "Navigate to Premium", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("Later", null)
             .show()
     }
 
     private fun openCategoryEntries(category: Category) {
-        Toast.makeText(this, "Opening ${category.name} entries", Toast.LENGTH_SHORT).show()
+        Toast.makeText(requireContext(), "Opening ${category.name} entries", Toast.LENGTH_SHORT).show()
     }
 
     private fun showNewCategoryDialog() {
-        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_new_category, null)
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_new_category, null)
         val etCategoryName = dialogView.findViewById<EditText>(R.id.etCategoryName)
         val btnCancel = dialogView.findViewById<Button>(R.id.btnCancel)
         val btnCreate = dialogView.findViewById<Button>(R.id.btnCreate)
 
-        newCategoryDialog = AlertDialog.Builder(this)
+        newCategoryDialog = AlertDialog.Builder(requireContext())
             .setView(dialogView)
             .setTitle("Create New Category")
             .setCancelable(true)
@@ -318,7 +272,7 @@ class CategoriesActivity : AppCompatActivity() {
 
     private fun showEditCategoryDialog() {
         val category = viewModel.selectedCategory.value ?: return
-        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_edit_category, null)
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_edit_category, null)
         val etCategoryName = dialogView.findViewById<EditText>(R.id.etCategoryName)
         val btnCancel = dialogView.findViewById<Button>(R.id.btnCancel)
         val btnSave = dialogView.findViewById<Button>(R.id.btnSave)
@@ -326,7 +280,7 @@ class CategoriesActivity : AppCompatActivity() {
 
         etCategoryName.setText(category.name)
 
-        editCategoryDialog = AlertDialog.Builder(this)
+        editCategoryDialog = AlertDialog.Builder(requireContext())
             .setView(dialogView)
             .setTitle("Edit Category")
             .setCancelable(true)
@@ -371,12 +325,12 @@ class CategoriesActivity : AppCompatActivity() {
     }
 
     private fun showDeleteConfirmationDialog(category: Category) {
-        AlertDialog.Builder(this)
+        AlertDialog.Builder(requireContext())
             .setTitle("Delete Category")
             .setMessage("Are you sure you want to delete '${category.name}'? All entries in this category will also be deleted. This action cannot be undone.")
             .setPositiveButton("Delete") { dialog, which ->
                 viewModel.deleteCategory(category.id)
-                Toast.makeText(this, "'${category.name}' deleted", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "'${category.name}' deleted", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("Cancel", null)
             .show()
@@ -387,12 +341,14 @@ class CategoriesActivity : AppCompatActivity() {
         editCategoryDialog?.dismiss()
     }
 
-    override fun onBackPressed() {
-        super.onBackPressed()
-    }
-
     override fun onDestroy() {
         super.onDestroy()
         dismissDialogs()
+    }
+
+    companion object {
+        fun newInstance(): CategoriesFragment {
+            return CategoriesFragment()
+        }
     }
 }
