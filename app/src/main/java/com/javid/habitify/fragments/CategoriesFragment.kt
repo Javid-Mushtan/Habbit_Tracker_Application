@@ -14,7 +14,6 @@ import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.javid.habitify.R
-import com.javid.habitify.SpecialHabitsActivity
 import com.javid.habitify.adapters.CategoryAdapter
 import com.javid.habitify.model.Category
 import com.javid.habitify.viewmodel.CategoriesViewModel

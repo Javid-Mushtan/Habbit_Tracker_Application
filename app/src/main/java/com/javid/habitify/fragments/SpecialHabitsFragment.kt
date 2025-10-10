@@ -6,8 +6,6 @@ import android.view.View
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.core.content.ContextCompat
-import com.javid.habitify.CategoriesActivity
-import com.javid.habitify.MoodJournalActivity
 import com.javid.habitify.R
 
 class SpecialHabitsFragment : Fragment() {

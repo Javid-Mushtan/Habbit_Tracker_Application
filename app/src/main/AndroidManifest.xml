@@ -20,17 +20,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat.DayNight.NoActionBar"
         tools:targetApi="31">
-        <activity
-            android:name=".MoodJournalActivity"
-            android:exported="false" />
-        <activity
-            android:name=".SpecialHabitsActivity"
-            android:exported="false" />
+
         <activity
             android:name=".ProfileActivity"
-            android:exported="false" />
-        <activity
-            android:name=".CategoriesActivity"
             android:exported="false" />
         <activity
             android:name=".Onboarding2"

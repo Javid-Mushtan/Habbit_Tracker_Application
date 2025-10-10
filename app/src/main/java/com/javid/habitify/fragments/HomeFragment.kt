@@ -19,11 +19,8 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import com.javid.habitify.CategoriesActivity
-import com.javid.habitify.MoodJournalActivity
 import com.javid.habitify.ProfileActivity
 import com.javid.habitify.R
-import com.javid.habitify.SpecialHabitsActivity
 import com.javid.habitify.model.Habit
 import com.javid.habitify.receivers.HabitReminderReceiver
 import com.javid.habitify.services.HabitReminderService
@@ -326,11 +323,6 @@ class HomeFragment : Fragment() {
 //        }
 //    }
 
-    private fun navigateToMoodJournal() {
-         val intent = Intent(requireContext(), MoodJournalActivity::class.java)
-         startActivity(intent)
-        showToast("Navigating to Mood Journal")
-    }
 
 //    private fun setBottomNavSelected(selectedView: TextView) {
 //        val navItems = listOf(navMain, navHabits, navMood)
@@ -906,21 +898,6 @@ class HomeFragment : Fragment() {
         intent.putExtra("user",bundle)
         startActivity(intent)
         showToast("Profile")
-    }
-
-    private fun navigateToHabits() {
-        startActivity(Intent(requireContext(), SpecialHabitsActivity::class.java))
-        showToast("Navigating to Special Prebuild Habits")
-    }
-
-    private fun navigateToTasks() {
-        showToast("Navigating to Tasks")
-    }
-
-    private fun navigateToCategories() {
-        val intent = Intent(requireContext(), CategoriesActivity::class.java)
-        startActivity(intent)
-        showToast("Navigating to Categories")
     }
 
     private fun navigateToTimer() {

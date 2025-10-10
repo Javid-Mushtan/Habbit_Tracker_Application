@@ -50,7 +50,6 @@ class HabitReminderReceiver : BroadcastReceiver() {
 
             createNotificationChannel(context, notificationManager)
 
-            // Try multiple sound sources
             val soundUri = getAlarmSoundUri(context)
             Log.d("HabitReminder", "Using sound URI: $soundUri")
 

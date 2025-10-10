@@ -12,7 +12,6 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.javid.habitify.R
-import com.javid.habitify.SpecialHabitsActivity
 import com.javid.habitify.adapters.MoodHistoryAdapter
 import com.javid.habitify.adapters.MoodOptionsAdapter
 import com.javid.habitify.model.MoodEntry
@@ -92,8 +91,6 @@ class MoodJournalFragment : Fragment(), MoodOptionsAdapter.OnMoodClickListener {
 
                 saveMoodEntry(moodEntry)
                 showToast("Mood saved: ${selectedMood!!.emoji} ${selectedMood!!.name}")
-                // Navigate back or refresh UI as needed
-                activity?.onBackPressed()
             } else {
                 showToast("Please select a mood first")
             }

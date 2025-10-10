@@ -9,7 +9,7 @@
         android:id="@+id/etSearch"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Search habits..."
+        android:hint="@string/search_habits"
         android:background="@drawable/edittext_background"
         android:padding="16dp"
         android:layout_marginBottom="16dp" />
@@ -24,7 +24,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Cancel"
+            android:text="@string/cancel"
             android:layout_marginEnd="8dp"
             android:background="@drawable/button_social" />
 
@@ -33,7 +33,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Search"
+            android:text="@string/search"
             android:layout_marginStart="8dp"
             android:background="@drawable/button_primary" />
 

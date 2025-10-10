@@ -21,11 +21,11 @@ class ProfileActivity : AppCompatActivity() {
     private lateinit var tvStreakCount: TextView
     private lateinit var tvHabitsCount: TextView
     private lateinit var tvCompletedCount: TextView
-    private lateinit var btnEditProfile: Button
     private lateinit var btnLogout: Button
     private lateinit var progressLevel: ProgressBar
     private lateinit var tvLevel: TextView
     private lateinit var tvProgress: TextView
+    private lateinit var back : Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,14 +54,11 @@ class ProfileActivity : AppCompatActivity() {
         progressLevel = findViewById(R.id.progressLevel)
         tvLevel = findViewById(R.id.tvLevel)
         tvProgress = findViewById(R.id.tvProgress)
-        btnEditProfile = findViewById(R.id.btnEditProfile)
         btnLogout = findViewById(R.id.btnLogout)
+        back = findViewById(R.id.btnEditProfile)
     }
 
     private fun setupClickListeners() {
-        btnEditProfile.setOnClickListener {
-            openEditProfile()
-        }
 
         btnLogout.setOnClickListener {
             logoutUser()
@@ -69,6 +66,12 @@ class ProfileActivity : AppCompatActivity() {
 
         ivProfilePicture.setOnClickListener {
             changeProfilePicture()
+        }
+
+        back.setOnClickListener {
+            val intent = Intent(this, MainActivity::class.java)
+            startActivity(intent)
+            Toast.makeText(this,"Back to Main Activity",Toast.LENGTH_SHORT).show()
         }
     }
 

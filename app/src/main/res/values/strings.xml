@@ -22,4 +22,14 @@
     <string name="overweight">Overweight</string>
     <string name="obese">Obese</string>
     <string name="_18_5"><![CDATA[< 18.5]]></string>
+    <string name="profile_picture">Profile Picture</string>
+    <string name="user_name">User Name</string>
+    <string name="member_since_2024">Member since 2024</string>
+    <string name="day_streak">Day Streak</string>
+    <string name="total_habits">Total Habits</string>
+    <string name="completed">Completed</string>
+    <string name="your_progress">Your Progress</string>
+    <string name="cancel">Cancel</string>
+    <string name="search">Search</string>
+    <string name="search_habits">Search habits...</string>
 </resources>

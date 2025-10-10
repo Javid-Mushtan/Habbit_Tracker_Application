@@ -31,7 +31,6 @@ class HeartRateFragment : Fragment(), SensorEventListener {
     private lateinit var sensorManager: SensorManager
     private var heartRateSensor: Sensor? = null
 
-    // Views
     private lateinit var tvHeartRate: TextView
     private lateinit var tvStatus: TextView
     private lateinit var tvZone: TextView
@@ -52,6 +51,7 @@ class HeartRateFragment : Fragment(), SensorEventListener {
     private var simulatedMeasurementRunnable: Runnable? = null
 
     private var simulationIndex = 0
+    private val simulatedHeartRates = listOf(72, 75, 78, 76, 74, 73, 75, 77, 76, 75)
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -82,23 +82,17 @@ class HeartRateFragment : Fragment(), SensorEventListener {
         containerPulse = view.findViewById(R.id.containerPulse)
         cardHeartRate = view.findViewById(R.id.cardHeartRate)
 
-        // Initial button states
         updateButtonStates(HeartRateStatus.READY)
     }
 
     private fun setupSensor() {
         sensorManager = requireContext().getSystemService(SensorManager::class.java)
-
         heartRateSensor = sensorManager.getDefaultSensor(Sensor.TYPE_HEART_RATE)
 
         if (heartRateSensor == null) {
-            heartRateSensor = sensorManager.getDefaultSensor(Sensor.TYPE_HEART_RATE)
-        }
-
-        if (heartRateSensor != null) {
-            tvStatus.text = "Heart rate sensor available"
+            tvStatus.text = "Heart rate sensor not available - using simulation"
         } else {
-            tvStatus.text = "Using simulated heart rate data"
+            tvStatus.text = "Heart rate sensor available - press Start to measure"
         }
     }
 
@@ -129,6 +123,12 @@ class HeartRateFragment : Fragment(), SensorEventListener {
 
         viewModel.heartRateStatus.observe(viewLifecycleOwner) { status ->
             updateButtonStates(status)
+            when (status) {
+                HeartRateStatus.READY -> tvStatus.text = "Ready to measure"
+                HeartRateStatus.MEASURING -> tvStatus.text = "Measuring..."
+                HeartRateStatus.FINISHED -> tvStatus.text = "Measurement complete"
+                HeartRateStatus.ERROR -> tvStatus.text = "Measurement error"
+            }
         }
 
         viewModel.statusMessage.observe(viewLifecycleOwner) { message ->
@@ -141,13 +141,13 @@ class HeartRateFragment : Fragment(), SensorEventListener {
     private fun startHeartRateMeasurement() {
         if (heartRateSensor != null) {
             sensorManager.registerListener(this, heartRateSensor, SensorManager.SENSOR_DELAY_NORMAL)
-            viewModel.startMeasurement()
-            startPulseAnimation()
+            tvStatus.text = "Place finger on sensor..."
         } else {
-            viewModel.startMeasurement()
-            startPulseAnimation()
-            //startSimulatedMeasurement()
+            tvStatus.text = "Using simulated heart rate data"
+            startSimulatedMeasurement()
         }
+        viewModel.startMeasurement()
+        startPulseAnimation()
     }
 
     private fun stopHeartRateMeasurement() {
@@ -177,22 +177,22 @@ class HeartRateFragment : Fragment(), SensorEventListener {
         containerPulse.clearAnimation()
     }
 
-//    private fun startSimulatedMeasurement() {
-//        simulationIndex = 0
-//        simulatedMeasurementRunnable = object : Runnable {
-//            override fun run() {
-//                if (simulationIndex < simulatedHeartRates.size) {
-//                    val simulatedBPM = simulatedHeartRates[simulationIndex]
-//                    viewModel.updateHeartRate(simulatedBPM)
-//                    simulationIndex++
-//                    handler.postDelayed(this, 2000) // Update every 2 seconds
-//                } else {
-//                    viewModel.stopMeasurement()
-//                }
-//            }
-//        }
-//        handler.post(simulatedMeasurementRunnable!!)
-//    }
+    private fun startSimulatedMeasurement() {
+        simulationIndex = 0
+        simulatedMeasurementRunnable = object : Runnable {
+            override fun run() {
+                if (simulationIndex < simulatedHeartRates.size) {
+                    val simulatedBPM = simulatedHeartRates[simulationIndex]
+                    viewModel.updateHeartRate(simulatedBPM)
+                    simulationIndex++
+                    handler.postDelayed(this, 2000)
+                } else {
+                    viewModel.stopMeasurement()
+                }
+            }
+        }
+        handler.post(simulatedMeasurementRunnable!!)
+    }
 
     private fun stopSimulatedMeasurement() {
         simulatedMeasurementRunnable?.let {
@@ -202,7 +202,6 @@ class HeartRateFragment : Fragment(), SensorEventListener {
 
     private fun updateUI(data: HeartRateData) {
         tvHeartRate.text = if (data.currentBPM > 0) "${data.currentBPM}" else "--"
-        tvStatus.text = data.measurementStatus
 
         if (data.currentBPM > 0) {
             val zone = viewModel.getHeartRateZone(data.currentBPM)
@@ -252,7 +251,7 @@ class HeartRateFragment : Fragment(), SensorEventListener {
 
     override fun onSensorChanged(event: SensorEvent?) {
         event?.let {
-            if (it.sensor.type == Sensor.TYPE_HEART_RATE || it.sensor.type == Sensor.TYPE_HEART_RATE) {
+            if (it.sensor.type == Sensor.TYPE_HEART_RATE) {
                 val heartRate = it.values[0].toInt()
                 if (heartRate > 0) {
                     viewModel.updateHeartRate(heartRate)
